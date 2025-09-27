@@ -44,7 +44,6 @@ class Triggerbot:
         self.range_min = 3.0  # Minimum attack range in blocks
         self.range_max = 3.0  # Maximum attack range in blocks
         self.miss_chance = 0.0  # Chance to miss on purpose (0.0-1.0)
-        self.hit_mode = "every_hit"  # "every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits", "sprint_crits"
         self.check_line_of_sight = True  # Check for obstacles between player and target
     
     def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
@@ -75,14 +74,6 @@ class Triggerbot:
         self.miss_chance = max(0.0, min(1.0, miss_chance))
         self.add_debug_log(f"Miss chance set to: {self.miss_chance:.1%}")
     
-    def set_hit_mode(self, hit_mode):
-        """Set the hit mode"""
-        valid_modes = ["every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits", "sprint_crits"]
-        if hit_mode in valid_modes:
-            self.hit_mode = hit_mode
-            self.add_debug_log(f"Hit mode set to: {hit_mode}")
-        else:
-            self.add_debug_log(f"Invalid hit mode: {hit_mode}")
     
     def set_line_of_sight_check(self, enabled):
         """Set whether to check line of sight"""
@@ -95,47 +86,6 @@ class Triggerbot:
         import random
         return random.random() < self.miss_chance
     
-    def can_crit(self):
-        """Check if player can perform a critical hit"""
-        try:
-            if minescript:
-                # Check if player is falling (crit condition)
-                player_pos = minescript.player_position()
-                if player_pos:
-                    # Simple check: if player is moving down, they might be falling
-                    # This is a basic implementation - could be enhanced
-                    return True  # For now, assume crits are possible
-        except:
-            pass
-        return False
-    
-    def is_sprinting(self):
-        """Check if player is sprinting"""
-        try:
-            if minescript:
-                # This would need to be implemented based on Minescript API
-                # For now, return False as a placeholder
-                return False
-        except:
-            pass
-        return False
-    
-    def should_attack_based_on_mode(self):
-        """Determine if we should attack based on hit mode"""
-        if self.hit_mode == "every_hit":
-            return True
-        elif self.hit_mode == "only_crits":
-            return self.can_crit()
-        elif self.hit_mode == "mainly_crits":
-            # Prefer crits but allow normal hits if no crit available
-            return True
-        elif self.hit_mode == "crit_hits":
-            return self.can_crit()
-        elif self.hit_mode == "sprint_hits":
-            return self.is_sprinting()
-        elif self.hit_mode == "sprint_crits":
-            return self.is_sprinting() and self.can_crit()
-        return True
     
     def has_line_of_sight(self, player_pos, target_pos):
         """Check if there's a clear line of sight to the target"""
@@ -375,13 +325,6 @@ class Triggerbot:
                                 time.sleep(self.ticks_to_seconds(delay_ticks))
                                 continue
                             
-                            # Check hit mode requirements
-                            if not self.should_attack_based_on_mode():
-                                mode_reason = f"Hit mode '{self.hit_mode}' not satisfied"
-                                self.add_debug_log(f"Skipping attack: {mode_reason}")
-                                delay_ticks = self.get_random_delay_ticks()
-                                time.sleep(self.ticks_to_seconds(delay_ticks))
-                                continue
                             
                             # Check miss chance
                             if self.should_miss():
