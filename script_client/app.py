@@ -12,10 +12,12 @@ import sys
 
 # Import modules
 from modules import Triggerbot
+from modules.shield_macro import ShieldMacro
 
 class ScriptClientApp:
     def __init__(self):
         self.triggerbot = Triggerbot()
+        self.shield_macro = ShieldMacro()
         self.textures_path = os.path.join(os.path.dirname(__file__), 'textures')
         self.setup_gui()
     
@@ -38,6 +40,10 @@ class ScriptClientApp:
                 # Combat Tab
                 with dpg.tab(label="⚔️ Combat", tag="combat_tab"):
                     self.create_combat_tab()
+                
+                # Shield Macro Tab
+                with dpg.tab(label="🛡️ Shield Macro", tag="shield_macro_tab"):
+                    self.create_shield_macro_tab()
                 
                 # Debug Tab
                 with dpg.tab(label="🐛 Debug", tag="debug_tab"):
@@ -235,6 +241,137 @@ class ScriptClientApp:
         dpg.add_text("Triggerbot will auto-attack when target is detected", color=[200, 200, 200])
         dpg.add_text("Works on mobs and players", color=[200, 200, 200])
     
+    def create_shield_macro_tab(self):
+        """Create the shield macro tab"""
+        dpg.add_text("Shield Macro", color=[255, 200, 100])  # Orange color
+        dpg.add_separator()
+        
+        # Status display
+        with dpg.group(horizontal=True):
+            dpg.add_text("Status:")
+            dpg.add_text("OFF", tag="shield_macro_status", color=[255, 100, 100])
+        
+        dpg.add_separator()
+        
+        # Enable/Disable toggle
+        dpg.add_checkbox(
+            label="Enable Shield Macro",
+            callback=self.update_shield_macro_enabled,
+            tag="shield_macro_enabled_checkbox"
+        )
+        dpg.add_text("Automatically switch to axe and disable shield when looking at players", color=[200, 200, 200])
+        
+        dpg.add_separator()
+        
+        # Delay control
+        dpg.add_text("Macro Delay Range (ticks):")
+        with dpg.group(horizontal=True):
+            dpg.add_text("Min:")
+            dpg.add_input_int(
+                label="",
+                default_value=2,
+                min_value=1,
+                max_value=40,
+                callback=self.update_shield_macro_delay_min_ticks,
+                tag="shield_macro_delay_min_input",
+                width=80
+            )
+            dpg.add_text("Max:")
+            dpg.add_input_int(
+                label="",
+                default_value=2,
+                min_value=1,
+                max_value=40,
+                callback=self.update_shield_macro_delay_max_ticks,
+                tag="shield_macro_delay_max_input",
+                width=80
+            )
+        dpg.add_text("Range: 2-2 ticks (0.10s-0.10s)", tag="shield_macro_delay_text")
+        dpg.add_text("Note: 20 ticks = 1 second", color=[150, 150, 150])
+        
+        dpg.add_separator()
+        
+        # Start/Stop buttons
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Start Macro",
+                callback=self.start_shield_macro,
+                tag="shield_macro_start_button",
+                width=120
+            )
+            dpg.add_button(
+                label="Stop Macro",
+                callback=self.stop_shield_macro,
+                tag="shield_macro_stop_button",
+                enabled=False,
+                width=120
+            )
+        
+        dpg.add_separator()
+        
+        # Instructions
+        dpg.add_text("Instructions:", color=[255, 255, 255])
+        dpg.add_text("1. Make sure you have an axe in your hotbar", color=[200, 200, 200])
+        dpg.add_text("2. Hold a shield in your off-hand", color=[200, 200, 200])
+        dpg.add_text("3. Look at a player to trigger the macro", color=[200, 200, 200])
+        dpg.add_text("4. Macro will switch to axe and disable shield", color=[200, 200, 200])
+    
+    # Shield Macro callback methods
+    def update_shield_macro_enabled(self, sender, value):
+        """Update shield macro enabled state"""
+        self.shield_macro.set_enabled(value)
+        status = "ON" if value else "OFF"
+        color = [100, 255, 100] if value else [255, 100, 100]
+        dpg.set_value("shield_macro_status", status)
+        dpg.configure_item("shield_macro_status", color=color)
+    
+    def update_shield_macro_delay_min_ticks(self, sender, value):
+        """Update shield macro minimum delay in ticks"""
+        value = max(1, min(40, value))
+        current_max = self.shield_macro.delay_max_ticks
+        if value > current_max:
+            value = current_max
+        self.shield_macro.set_delay_range_ticks(value, current_max)
+        dpg.set_value("shield_macro_delay_min_input", value)
+        self._update_shield_macro_delay_text()
+    
+    def update_shield_macro_delay_max_ticks(self, sender, value):
+        """Update shield macro maximum delay in ticks"""
+        value = max(1, min(40, value))
+        current_min = self.shield_macro.delay_min_ticks
+        if value < current_min:
+            value = current_min
+        self.shield_macro.set_delay_range_ticks(current_min, value)
+        dpg.set_value("shield_macro_delay_max_input", value)
+        self._update_shield_macro_delay_text()
+    
+    def _update_shield_macro_delay_text(self):
+        """Update shield macro delay text display"""
+        delay_min, delay_max = self.shield_macro.get_delay_range_ticks()
+        min_sec = self.shield_macro.ticks_to_seconds(delay_min)
+        max_sec = self.shield_macro.ticks_to_seconds(delay_max)
+        dpg.set_value("shield_macro_delay_text", f"Range: {delay_min}-{delay_max} ticks ({min_sec:.2f}s-{max_sec:.2f}s)")
+    
+    def start_shield_macro(self):
+        """Start the shield macro"""
+        if self.shield_macro.start():
+            dpg.set_value("shield_macro_status", "ON")
+            dpg.configure_item("shield_macro_status", color=[100, 255, 100])  # Green
+            dpg.configure_item("shield_macro_start_button", enabled=False)
+            dpg.configure_item("shield_macro_stop_button", enabled=True)
+            # Auto-refresh debug logs when starting
+            self.refresh_debug_logs()
+    
+    def stop_shield_macro(self):
+        """Stop the shield macro"""
+        if self.shield_macro.stop():
+            dpg.set_value("shield_macro_status", "OFF")
+            dpg.configure_item("shield_macro_status", color=[255, 100, 100])  # Red
+            dpg.configure_item("shield_macro_start_button", enabled=True)
+            dpg.configure_item("shield_macro_stop_button", enabled=False)
+            # Auto-refresh debug logs when stopping
+            self.refresh_debug_logs()
+    
     def create_debug_tab(self):
         """Create the debug tab with logging"""
         dpg.add_text("Debug Logs", color=[255, 200, 100])  # Orange color
@@ -262,9 +399,21 @@ class ScriptClientApp:
     
     def refresh_debug_logs(self):
         """Refresh the debug logs display"""
-        logs = self.triggerbot.get_debug_logs()
-        if logs:
-            log_text = "\n".join(logs[-20:])  # Show last 20 logs
+        # Combine logs from both modules
+        triggerbot_logs = self.triggerbot.get_debug_logs()
+        shield_macro_logs = self.shield_macro.get_debug_logs()
+        
+        all_logs = []
+        if triggerbot_logs:
+            all_logs.extend([f"[TRIGGERBOT] {log}" for log in triggerbot_logs])
+        if shield_macro_logs:
+            all_logs.extend([f"[SHIELD MACRO] {log}" for log in shield_macro_logs])
+        
+        # Sort by timestamp (assuming logs have timestamps)
+        all_logs.sort()
+        
+        if all_logs:
+            log_text = "\n".join(all_logs[-30:])  # Show last 30 logs
         else:
             log_text = "No debug logs yet..."
         
@@ -272,7 +421,8 @@ class ScriptClientApp:
     
     def clear_debug_logs(self):
         """Clear debug logs"""
-        self.triggerbot.debug_logs.clear()
+        self.triggerbot.clear_debug_logs()
+        self.shield_macro.clear_debug_logs()
         dpg.set_value("debug_logs_text", "Debug logs cleared.")
     
     def update_triggerbot_delay_min_ticks(self, sender, value):
