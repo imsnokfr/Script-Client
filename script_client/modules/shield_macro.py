@@ -75,8 +75,8 @@ class ShieldMacro:
                 inventory = minescript.player_inventory()
                 if inventory:
                     for item in inventory:
-                        if item and 'id' in item:
-                            item_id = item['id'].lower()
+                        if item and hasattr(item, 'id'):
+                            item_id = item.id.lower()
                             if 'axe' in item_id:
                                 return True
         except Exception as e:
@@ -84,16 +84,19 @@ class ShieldMacro:
         return False
     
     def find_axe_slot(self):
-        """Find the slot number of the first axe in inventory"""
+        """Find the slot number of the first axe in hotbar (0-8)"""
         try:
             if minescript:
                 inventory = minescript.player_inventory()
                 if inventory:
-                    for i, item in enumerate(inventory):
-                        if item and 'id' in item:
-                            item_id = item['id'].lower()
-                            if 'axe' in item_id:
-                                return i
+                    # Check hotbar slots (0-8)
+                    for i in range(9):
+                        if i < len(inventory):
+                            item = inventory[i]
+                            if item and hasattr(item, 'id'):
+                                item_id = item.id.lower()
+                                if 'axe' in item_id:
+                                    return i
         except Exception as e:
             self.add_debug_log(f"Axe slot search failed: {e}")
         return -1
@@ -112,16 +115,14 @@ class ShieldMacro:
             self.add_debug_log(f"Shield check failed: {e}")
         return False
     
-    def is_target_player_with_shield(self):
-        """Check if the targeted entity is a player holding a shield"""
+    def is_target_player(self):
+        """Check if the targeted entity is a player"""
         try:
             if minescript:
                 target = minescript.player_get_targeted_entity()
                 if target and hasattr(target, 'type'):
                     # Check if it's a player
                     if target.type == 'player':
-                        # Check if target has shield (we can't directly check their inventory,
-                        # but we can assume they might have one if they're a player)
                         return True
         except Exception as e:
             self.add_debug_log(f"Target check failed: {e}")
@@ -131,10 +132,10 @@ class ShieldMacro:
         """Switch to the axe in the specified slot"""
         try:
             if minescript:
-                # Press the hotbar key for the slot (1-9)
-                if 1 <= slot <= 9:
-                    minescript.press_key_bind(f"hotbar.{slot}")
-                    self.add_debug_log(f"Switched to axe in slot {slot}")
+                # Use player_inventory_select_slot (0-8 for hotbar)
+                if 0 <= slot <= 8:
+                    minescript.player_inventory_select_slot(slot)
+                    self.add_debug_log(f"Switched to axe in slot {slot + 1}")
                     return True
         except Exception as e:
             self.add_debug_log(f"Switch to axe failed: {e}")
@@ -164,8 +165,14 @@ class ShieldMacro:
                     time.sleep(0.1)
                     continue
                 
+                # Check if we're currently holding a shield
+                if not self.is_holding_shield():
+                    delay_ticks = self.get_random_delay_ticks()
+                    time.sleep(self.ticks_to_seconds(delay_ticks))
+                    continue
+                
                 # Check if we're looking at a player
-                if not self.is_target_player_with_shield():
+                if not self.is_target_player():
                     delay_ticks = self.get_random_delay_ticks()
                     time.sleep(self.ticks_to_seconds(delay_ticks))
                     continue
@@ -173,12 +180,6 @@ class ShieldMacro:
                 # Check if we have an axe in inventory
                 if not self.has_axe_in_inventory():
                     self.add_debug_log("No axe found in inventory - skipping")
-                    delay_ticks = self.get_random_delay_ticks()
-                    time.sleep(self.ticks_to_seconds(delay_ticks))
-                    continue
-                
-                # Check if we're currently holding a shield
-                if not self.is_holding_shield():
                     delay_ticks = self.get_random_delay_ticks()
                     time.sleep(self.ticks_to_seconds(delay_ticks))
                     continue

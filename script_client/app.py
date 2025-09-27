@@ -41,10 +41,6 @@ class ScriptClientApp:
                 with dpg.tab(label="⚔️ Combat", tag="combat_tab"):
                     self.create_combat_tab()
                 
-                # Shield Macro Tab
-                with dpg.tab(label="🛡️ Shield Macro", tag="shield_macro_tab"):
-                    self.create_shield_macro_tab()
-                
                 # Debug Tab
                 with dpg.tab(label="🐛 Debug", tag="debug_tab"):
                     self.create_debug_tab()
@@ -240,18 +236,17 @@ class ScriptClientApp:
         dpg.add_text("Hold right-click to aim at target", color=[200, 200, 200])
         dpg.add_text("Triggerbot will auto-attack when target is detected", color=[200, 200, 200])
         dpg.add_text("Works on mobs and players", color=[200, 200, 200])
-    
-    def create_shield_macro_tab(self):
-        """Create the shield macro tab"""
+        
+        dpg.add_separator()
+        
+        # Shield Macro Section
         dpg.add_text("Shield Macro", color=[255, 200, 100])  # Orange color
         dpg.add_separator()
         
-        # Status display
+        # Shield Macro Status
         with dpg.group(horizontal=True):
             dpg.add_text("Status:")
             dpg.add_text("OFF", tag="shield_macro_status", color=[255, 100, 100])
-        
-        dpg.add_separator()
         
         # Enable/Disable toggle
         dpg.add_checkbox(
@@ -259,11 +254,9 @@ class ScriptClientApp:
             callback=self.update_shield_macro_enabled,
             tag="shield_macro_enabled_checkbox"
         )
-        dpg.add_text("Automatically switch to axe and disable shield when looking at players", color=[200, 200, 200])
+        dpg.add_text("Auto switch to axe and disable shield when looking at players", color=[200, 200, 200])
         
-        dpg.add_separator()
-        
-        # Delay control
+        # Shield Macro Delay control
         dpg.add_text("Macro Delay Range (ticks):")
         with dpg.group(horizontal=True):
             dpg.add_text("Min:")
@@ -287,34 +280,24 @@ class ScriptClientApp:
                 width=80
             )
         dpg.add_text("Range: 2-2 ticks (0.10s-0.10s)", tag="shield_macro_delay_text")
-        dpg.add_text("Note: 20 ticks = 1 second", color=[150, 150, 150])
-        
-        dpg.add_separator()
         
         # Start/Stop buttons
         with dpg.group(horizontal=True):
             dpg.add_button(
-                label="Start Macro",
+                label="Start Shield Macro",
                 callback=self.start_shield_macro,
                 tag="shield_macro_start_button",
-                width=120
+                width=150
             )
             dpg.add_button(
-                label="Stop Macro",
+                label="Stop Shield Macro",
                 callback=self.stop_shield_macro,
                 tag="shield_macro_stop_button",
                 enabled=False,
-                width=120
+                width=150
             )
         
-        dpg.add_separator()
-        
-        # Instructions
-        dpg.add_text("Instructions:", color=[255, 255, 255])
-        dpg.add_text("1. Make sure you have an axe in your hotbar", color=[200, 200, 200])
-        dpg.add_text("2. Hold a shield in your off-hand", color=[200, 200, 200])
-        dpg.add_text("3. Look at a player to trigger the macro", color=[200, 200, 200])
-        dpg.add_text("4. Macro will switch to axe and disable shield", color=[200, 200, 200])
+        dpg.add_text("Instructions: Hold shield in off-hand, look at players to auto-switch to axe", color=[200, 200, 200])
     
     # Shield Macro callback methods
     def update_shield_macro_enabled(self, sender, value):
