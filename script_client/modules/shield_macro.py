@@ -9,6 +9,8 @@ import threading
 import time
 import sys
 import os
+import json
+from datetime import datetime
 
 # Add minescript to path
 minescript_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'system', 'lib')
@@ -29,6 +31,14 @@ class ShieldMacro:
         self.macro_thread = None
         self.debug_logs = []
         self.max_logs = 50  # Keep last 50 logs
+        
+        # Create logs directory
+        self.logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
+        
+        # Session log file
+        self.session_log_file = os.path.join(self.logs_dir, f"shield_macro_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
         self.enabled = False  # Whether the macro is enabled
         
     def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
@@ -56,6 +66,13 @@ class ShieldMacro:
         log_entry = f"[{timestamp}] {message}"
         self.debug_logs.append(log_entry)
         
+        # Write to session log file
+        try:
+            with open(self.session_log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry + '\n')
+        except Exception as e:
+            print(f"Failed to write to log file: {e}")
+        
         # Keep only the last max_logs entries
         if len(self.debug_logs) > self.max_logs:
             self.debug_logs.pop(0)
@@ -71,16 +88,36 @@ class ShieldMacro:
     def has_axe_in_inventory(self):
         """Check if player has an axe in their inventory"""
         try:
-            if minescript:
-                inventory = minescript.player_inventory()
-                if inventory:
-                    for item in inventory:
-                        if item and hasattr(item, 'id'):
-                            item_id = item.id.lower()
-                            if 'axe' in item_id:
-                                return True
+            if not minescript:
+                self.add_debug_log("Minescript not available for inventory check")
+                return False
+                
+            self.add_debug_log("Checking player inventory for axe...")
+            inventory = minescript.player_inventory()
+            self.add_debug_log(f"Inventory type: {type(inventory)}")
+            
+            if not inventory:
+                self.add_debug_log("No inventory found")
+                return False
+                
+            self.add_debug_log(f"Inventory length: {len(inventory)}")
+            
+            for i, item in enumerate(inventory):
+                if item and hasattr(item, 'id'):
+                    item_id = item.id.lower()
+                    self.add_debug_log(f"Slot {i}: {item_id}")
+                    if 'axe' in item_id:
+                        self.add_debug_log(f"Found axe in slot {i}: {item_id}")
+                        return True
+                else:
+                    self.add_debug_log(f"Slot {i}: No item or no ID")
+                    
+            self.add_debug_log("No axe found in inventory")
+            return False
         except Exception as e:
             self.add_debug_log(f"Inventory check failed: {e}")
+            import traceback
+            self.add_debug_log(f"Traceback: {traceback.format_exc()}")
         return False
     
     def find_axe_slot(self):
@@ -118,21 +155,69 @@ class ShieldMacro:
     def is_target_player_with_shield(self):
         """Check if the targeted entity is a player holding a shield"""
         try:
-            if minescript:
-                target = minescript.player_get_targeted_entity()
-                if target and hasattr(target, 'type'):
-                    # Check if it's a player
-                    if target.type == 'player':
-                        # Check if target is holding a shield in off-hand
-                        target_hand_items = minescript.get_entity_hand_items(target)
-                        if target_hand_items and hasattr(target_hand_items, 'off_hand'):
-                            off_hand_item = target_hand_items.off_hand
-                            if off_hand_item and hasattr(off_hand_item, 'id'):
-                                item_id = off_hand_item.id.lower()
-                                if 'shield' in item_id:
-                                    return True
+            if not minescript:
+                self.add_debug_log("Minescript not available")
+                return False
+                
+            self.add_debug_log("Checking for target player with shield...")
+            target = minescript.player_get_targeted_entity()
+            
+            if not target:
+                self.add_debug_log("No target entity found")
+                return False
+                
+            self.add_debug_log(f"Target found: {type(target)}")
+            
+            if not hasattr(target, 'type'):
+                self.add_debug_log("Target has no 'type' attribute")
+                return False
+                
+            self.add_debug_log(f"Target type: {target.type}")
+            
+            # Check if it's a player
+            if target.type != 'player':
+                self.add_debug_log(f"Target is not a player (type: {target.type})")
+                return False
+                
+            self.add_debug_log("Target is a player, checking for shield...")
+            
+            # Check if target is holding a shield in off-hand
+            target_hand_items = minescript.get_entity_hand_items(target)
+            self.add_debug_log(f"Target hand items: {type(target_hand_items)}")
+            
+            if not target_hand_items:
+                self.add_debug_log("No hand items found for target")
+                return False
+                
+            if not hasattr(target_hand_items, 'off_hand'):
+                self.add_debug_log("Target hand items has no 'off_hand' attribute")
+                return False
+                
+            off_hand_item = target_hand_items.off_hand
+            self.add_debug_log(f"Off-hand item: {off_hand_item}")
+            
+            if not off_hand_item:
+                self.add_debug_log("Target has no off-hand item")
+                return False
+                
+            if not hasattr(off_hand_item, 'id'):
+                self.add_debug_log("Off-hand item has no 'id' attribute")
+                return False
+                
+            item_id = off_hand_item.id.lower()
+            self.add_debug_log(f"Off-hand item ID: {item_id}")
+            
+            if 'shield' in item_id:
+                self.add_debug_log("Target is holding a shield! Returning True")
+                return True
+            else:
+                self.add_debug_log(f"Target is not holding a shield (item: {item_id})")
+                return False
+                
         except Exception as e:
             self.add_debug_log(f"Target shield check failed: {e}")
+            import traceback
+            self.add_debug_log(f"Traceback: {traceback.format_exc()}")
         return False
     
     def switch_to_axe(self, slot):
@@ -165,15 +250,22 @@ class ShieldMacro:
     def _shield_macro_loop(self):
         """Main shield macro loop"""
         self.add_debug_log("Shield macro started")
+        loop_count = 0
         
         while self.is_running:
             try:
+                loop_count += 1
+                if loop_count % 20 == 0:  # Log every 20 loops
+                    self.add_debug_log(f"Shield macro loop iteration {loop_count}")
+                
                 if not self.enabled:
                     time.sleep(0.1)
                     continue
                 
+                self.add_debug_log("Checking for target player with shield...")
                 # Check if we're looking at a player holding a shield
                 if not self.is_target_player_with_shield():
+                    self.add_debug_log("No target player with shield found, waiting...")
                     delay_ticks = self.get_random_delay_ticks()
                     time.sleep(self.ticks_to_seconds(delay_ticks))
                     continue
