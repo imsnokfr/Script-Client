@@ -152,6 +152,25 @@ class ScriptClientApp:
         
         dpg.add_separator()
         
+        # Line of sight and height validation
+        dpg.add_text("Target Validation:", color=[255, 255, 255])
+        with dpg.group(horizontal=True):
+            dpg.add_checkbox(
+                label="Check Line of Sight",
+                default_value=True,
+                callback=self.update_line_of_sight_check,
+                tag="line_of_sight_checkbox"
+            )
+            dpg.add_checkbox(
+                label="Check Height",
+                default_value=True,
+                callback=self.update_height_check,
+                tag="height_check_checkbox"
+            )
+        dpg.add_text("Prevents attacking through walls or at invalid heights", color=[150, 150, 150])
+        
+        dpg.add_separator()
+        
         # Miss chance control
         dpg.add_text("Miss Chance:")
         with dpg.group(horizontal=True):
@@ -407,6 +426,14 @@ class ScriptClientApp:
         if 0 <= value < len(modes):
             self.triggerbot.set_hit_mode(modes[value])
             dpg.set_value("hit_mode_text", mode_names[value])
+    
+    def update_line_of_sight_check(self, sender, value):
+        """Update line of sight check setting"""
+        self.triggerbot.set_line_of_sight_check(value)
+    
+    def update_height_check(self, sender, value):
+        """Update height check setting"""
+        self.triggerbot.set_height_check(value)
     
     def update_attack_method(self, sender, value):
         """Update attack method"""

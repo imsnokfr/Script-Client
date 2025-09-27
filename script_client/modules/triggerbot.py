@@ -46,6 +46,8 @@ class Triggerbot:
         self.use_ticks = True  # Use ticks instead of seconds for delay
         self.miss_chance = 0.0  # Chance to miss on purpose (0.0-1.0)
         self.hit_mode = "every_hit"  # "every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits"
+        self.check_line_of_sight = True  # Check for obstacles between player and target
+        self.check_height = True  # Check if target is at valid height
     
     def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
         """Set the attack delay range in ticks"""
@@ -87,6 +89,16 @@ class Triggerbot:
             self.add_debug_log(f"Hit mode set to: {hit_mode}")
         else:
             self.add_debug_log(f"Invalid hit mode: {hit_mode}")
+    
+    def set_line_of_sight_check(self, enabled):
+        """Set whether to check line of sight"""
+        self.check_line_of_sight = enabled
+        self.add_debug_log(f"Line of sight check: {'enabled' if enabled else 'disabled'}")
+    
+    def set_height_check(self, enabled):
+        """Set whether to check target height"""
+        self.check_height = enabled
+        self.add_debug_log(f"Height check: {'enabled' if enabled else 'disabled'}")
     
     def should_miss(self):
         """Check if this attack should miss on purpose"""
@@ -132,6 +144,54 @@ class Triggerbot:
         elif self.hit_mode == "sprint_hits":
             return self.is_sprinting()
         return True
+    
+    def has_line_of_sight(self, player_pos, target_pos):
+        """Check if there's a clear line of sight to the target"""
+        try:
+            if minescript:
+                # Sample points along the line between player and target
+                steps = 10  # Number of points to check
+                dx = (target_pos[0] - player_pos[0]) / steps
+                dy = (target_pos[1] - player_pos[1]) / steps
+                dz = (target_pos[2] - player_pos[2]) / steps
+                
+                for i in range(1, steps):
+                    check_x = player_pos[0] + (dx * i)
+                    check_y = player_pos[1] + (dy * i)
+                    check_z = player_pos[2] + (dz * i)
+                    
+                    # Check if there's a solid block at this position
+                    block = minescript.getblock(check_x, check_y, check_z)
+                    if block and block != "air" and block != "cave_air":
+                        return False
+                
+                return True
+        except Exception as e:
+            self.add_debug_log(f"Line of sight check failed: {e}")
+            return True  # Default to allowing attack if check fails
+    
+    def is_target_at_valid_height(self, player_pos, target_pos):
+        """Check if target is at a reasonable height for attacking"""
+        try:
+            height_diff = abs(target_pos[1] - player_pos[1])
+            max_height_diff = 2.0  # Maximum height difference in blocks
+            
+            # Allow some height difference but not too much
+            if height_diff > max_height_diff:
+                return False
+            
+            # Check if target is too far above (can't reach)
+            if target_pos[1] > player_pos[1] + max_height_diff:
+                return False
+            
+            # Check if target is too far below (might be underground)
+            if target_pos[1] < player_pos[1] - max_height_diff:
+                return False
+            
+            return True
+        except Exception as e:
+            self.add_debug_log(f"Height check failed: {e}")
+            return True  # Default to allowing attack if check fails
     
     def set_attack_method(self, method):
         """Set the attack method: 'minescript' or 'win32'"""
@@ -322,6 +382,21 @@ class Triggerbot:
                                     
                                     if distance > max_range:
                                         self.add_debug_log(f"Target {target_name} too far ({distance:.2f} > {max_range:.2f}) - skipping attack")
+                                        delay_ticks = self.get_random_delay_ticks()
+                                        time.sleep(self.ticks_to_seconds(delay_ticks))
+                                        continue
+                                    
+                                    # Check line of sight (if enabled)
+                                    if self.check_line_of_sight and not self.has_line_of_sight(player_pos, target_pos):
+                                        self.add_debug_log(f"Target {target_name} blocked by obstacles - skipping attack")
+                                        delay_ticks = self.get_random_delay_ticks()
+                                        time.sleep(self.ticks_to_seconds(delay_ticks))
+                                        continue
+                                    
+                                    # Check height validity (if enabled)
+                                    if self.check_height and not self.is_target_at_valid_height(player_pos, target_pos):
+                                        height_diff = target_pos[1] - player_pos[1]
+                                        self.add_debug_log(f"Target {target_name} at invalid height (diff: {height_diff:.1f} blocks) - skipping attack")
                                         delay_ticks = self.get_random_delay_ticks()
                                         time.sleep(self.ticks_to_seconds(delay_ticks))
                                         continue
