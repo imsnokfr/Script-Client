@@ -9,6 +9,8 @@ import threading
 import time
 import sys
 import os
+import json
+from datetime import datetime
 
 # Add minescript to path
 minescript_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'system', 'lib')
@@ -43,6 +45,15 @@ class Triggerbot:
         self.allowed_weapons = set()  # Set of allowed weapon types
         self.range_min = 3.0  # Minimum attack range in blocks
         self.range_max = 3.0  # Maximum attack range in blocks
+        self.attack_callback = None  # Callback function to call when attacking
+        
+        # Create logs directory
+        self.logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
+        
+        # Session log file
+        self.session_log_file = os.path.join(self.logs_dir, f"triggerbot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
     
     def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
         """Set the attack delay range in ticks"""
@@ -73,6 +84,10 @@ class Triggerbot:
             self.add_debug_log(f"Attack method set to: {method}")
         else:
             self.add_debug_log(f"Invalid attack method: {method}. Use 'minescript' or 'win32'")
+    
+    def set_attack_callback(self, callback):
+        """Set the callback function to call when attacking"""
+        self.attack_callback = callback
     
     def get_attack_method(self):
         """Get the current attack method"""
@@ -206,10 +221,16 @@ class Triggerbot:
     
     def add_debug_log(self, message):
         """Add a debug log message"""
-        import time
         timestamp = time.strftime("%H:%M:%S")
         log_entry = f"[{timestamp}] {message}"
         self.debug_logs.append(log_entry)
+        
+        # Write to session log file
+        try:
+            with open(self.session_log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry + '\n')
+        except Exception as e:
+            print(f"Failed to write to log file: {e}")
         
         # Keep only the last max_logs entries
         if len(self.debug_logs) > self.max_logs:
@@ -289,6 +310,13 @@ class Triggerbot:
                             elif self.attack_method == "win32":
                                 # Use Win32 API attack method
                                 self._win32_attack()
+                            
+                            # Call attack callback if set (for mace swap integration)
+                            if self.attack_callback:
+                                try:
+                                    self.attack_callback()
+                                except Exception as e:
+                                    self.add_debug_log(f"Attack callback failed: {e}")
                             
                             time.sleep(current_delay_seconds)
                         else:

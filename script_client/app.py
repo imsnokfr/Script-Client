@@ -9,14 +9,37 @@ A clean GUI for Minecraft utilities using Minecraft textures.
 import dearpygui.dearpygui as dpg
 import os
 import sys
+import threading
+import time
+import json
+from datetime import datetime
 
 # Import modules
 from modules import Triggerbot
+from modules.mace_swap import MaceSwap
 
 class ScriptClientApp:
     def __init__(self):
         self.triggerbot = Triggerbot()
+        self.mace_swap = MaceSwap()
         self.textures_path = os.path.join(os.path.dirname(__file__), 'textures')
+        
+        # Connect mace swap to triggerbot
+        self.triggerbot.set_attack_callback(self.mace_swap.trigger_swap)
+        
+        # Keybind system
+        self.keybind_enabled = False
+        self.keybind_key = "F1"  # Default keybind
+        self.keybind_thread = None
+        
+        # Create logs directory
+        self.logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
+        
+        # Session log file
+        self.session_log_file = os.path.join(self.logs_dir, f"script_client_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        
         self.setup_gui()
     
     def setup_gui(self):
@@ -230,10 +253,85 @@ class ScriptClientApp:
         
         dpg.add_separator()
         
+        # Keybind Section
+        dpg.add_text("Keybind", color=[255, 200, 100])  # Orange color
+        dpg.add_separator()
+        
+        with dpg.group(horizontal=True):
+            dpg.add_text("Toggle Key:")
+            dpg.add_input_text(
+                label="",
+                default_value="F1",
+                callback=self.update_keybind_key,
+                tag="keybind_input",
+                width=80
+            )
+        
+        dpg.add_checkbox(
+            label="Enable Keybind",
+            callback=self.update_keybind_enabled,
+            tag="keybind_enabled_checkbox"
+        )
+        dpg.add_text("Press the key to toggle triggerbot on/off", color=[200, 200, 200])
+        
+        dpg.add_separator()
+        
         # Info text
         dpg.add_text("Hold right-click to aim at target", color=[200, 200, 200])
         dpg.add_text("Triggerbot will auto-attack when target is detected", color=[200, 200, 200])
         dpg.add_text("Works on mobs and players", color=[200, 200, 200])
+        
+        dpg.add_separator()
+        
+        # Mace Swap Section
+        dpg.add_text("Mace Swap", color=[255, 200, 100])  # Orange color
+        dpg.add_separator()
+        
+        # Mace Swap Status
+        with dpg.group(horizontal=True):
+            dpg.add_text("Status:")
+            dpg.add_text("OFF", tag="mace_swap_status", color=[255, 100, 100])
+        
+        # Enable/Disable toggle
+        dpg.add_checkbox(
+            label="Enable Mace Swap",
+            callback=self.update_mace_swap_enabled,
+            tag="mace_swap_enabled_checkbox"
+        )
+        dpg.add_text("Auto swap to mace after attacking", color=[200, 200, 200])
+        
+        # Mace Swap Delay control
+        dpg.add_text("Swap Delay (ticks):")
+        with dpg.group(horizontal=True):
+            dpg.add_text("Delay:")
+            dpg.add_input_int(
+                label="",
+                default_value=1,
+                min_value=1,
+                max_value=20,
+                callback=self.update_mace_swap_delay_ticks,
+                tag="mace_swap_delay_input",
+                width=80
+            )
+        dpg.add_text("Delay: 1 tick (0.05s)", tag="mace_swap_delay_text")
+        
+        # Start/Stop buttons
+        with dpg.group(horizontal=True):
+            dpg.add_button(
+                label="Start Mace Swap",
+                callback=self.start_mace_swap,
+                tag="mace_swap_start_button",
+                width=150
+            )
+            dpg.add_button(
+                label="Stop Mace Swap",
+                callback=self.stop_mace_swap,
+                tag="mace_swap_stop_button",
+                enabled=False,
+                width=150
+            )
+        
+        dpg.add_text("Instructions: Make sure you have a mace in your hotbar", color=[200, 200, 200])
         
     
     def create_debug_tab(self):
@@ -264,10 +362,13 @@ class ScriptClientApp:
     def refresh_debug_logs(self):
         """Refresh the debug logs display"""
         triggerbot_logs = self.triggerbot.get_debug_logs()
+        mace_swap_logs = self.mace_swap.get_debug_logs()
         
         all_logs = []
         if triggerbot_logs:
             all_logs.extend([f"[TRIGGERBOT] {log}" for log in triggerbot_logs])
+        if mace_swap_logs:
+            all_logs.extend([f"[MACE SWAP] {log}" for log in mace_swap_logs])
         
         # Sort by timestamp (assuming logs have timestamps)
         all_logs.sort()
@@ -282,7 +383,124 @@ class ScriptClientApp:
     def clear_debug_logs(self):
         """Clear debug logs"""
         self.triggerbot.clear_debug_logs()
+        self.mace_swap.clear_debug_logs()
         dpg.set_value("debug_logs_text", "Debug logs cleared.")
+    
+    # Keybind methods
+    def update_keybind_key(self, sender, value):
+        """Update the keybind key"""
+        self.keybind_key = value.upper()
+        self.add_log(f"Keybind changed to: {self.keybind_key}")
+    
+    def update_keybind_enabled(self, sender, value):
+        """Enable or disable keybind system"""
+        self.keybind_enabled = value
+        if value:
+            self.start_keybind_listener()
+            self.add_log(f"Keybind enabled: {self.keybind_key}")
+        else:
+            self.stop_keybind_listener()
+            self.add_log("Keybind disabled")
+    
+    def start_keybind_listener(self):
+        """Start the keybind listener thread"""
+        if self.keybind_thread and self.keybind_thread.is_alive():
+            return
+        
+        self.keybind_thread = threading.Thread(target=self._keybind_listener, daemon=True)
+        self.keybind_thread.start()
+    
+    def stop_keybind_listener(self):
+        """Stop the keybind listener thread"""
+        if self.keybind_thread and self.keybind_thread.is_alive():
+            self.keybind_enabled = False
+            self.keybind_thread.join(timeout=0.5)
+    
+    def _keybind_listener(self):
+        """Keybind listener thread"""
+        try:
+            import keyboard
+            self.add_log(f"Keybind listener started for key: {self.keybind_key}")
+            
+            while self.keybind_enabled:
+                try:
+                    if keyboard.is_pressed(self.keybind_key.lower()):
+                        # Toggle triggerbot
+                        if self.triggerbot.is_running:
+                            self.triggerbot.stop()
+                            self.add_log("Triggerbot stopped via keybind")
+                        else:
+                            self.triggerbot.start()
+                            self.add_log("Triggerbot started via keybind")
+                        
+                        # Update GUI
+                        dpg.set_value("triggerbot_status", "OFF" if not self.triggerbot.is_running else "ON")
+                        color = [255, 100, 100] if not self.triggerbot.is_running else [100, 255, 100]
+                        dpg.configure_item("triggerbot_status", color=color)
+                        
+                        # Wait to prevent multiple toggles
+                        time.sleep(0.5)
+                    
+                    time.sleep(0.01)  # Small delay to prevent high CPU usage
+                except Exception as e:
+                    self.add_log(f"Keybind error: {e}")
+                    time.sleep(0.1)
+        except ImportError:
+            self.add_log("keyboard module not found. Install with: pip install keyboard")
+        except Exception as e:
+            self.add_log(f"Keybind listener error: {e}")
+    
+    def add_log(self, message):
+        """Add a log message"""
+        timestamp = time.strftime("%H:%M:%S")
+        log_entry = f"[{timestamp}] {message}"
+        
+        # Write to session log file
+        try:
+            with open(self.session_log_file, 'a', encoding='utf-8') as f:
+                f.write(log_entry + '\n')
+        except Exception as e:
+            print(f"Failed to write to log file: {e}")
+    
+    # Mace Swap callback methods
+    def update_mace_swap_enabled(self, sender, value):
+        """Update mace swap enabled state"""
+        self.mace_swap.set_enabled(value)
+        status = "ON" if value else "OFF"
+        color = [100, 255, 100] if value else [255, 100, 100]
+        dpg.set_value("mace_swap_status", status)
+        dpg.configure_item("mace_swap_status", color=color)
+
+    def update_mace_swap_delay_ticks(self, sender, value):
+        """Update mace swap delay in ticks"""
+        value = max(1, min(20, value))
+        self.mace_swap.set_delay_ticks(value)
+        dpg.set_value("mace_swap_delay_input", value)
+        self._update_mace_swap_delay_text()
+
+    def _update_mace_swap_delay_text(self):
+        """Update mace swap delay text display"""
+        delay_ticks = self.mace_swap.get_delay_ticks()
+        delay_sec = self.mace_swap.ticks_to_seconds(delay_ticks)
+        dpg.set_value("mace_swap_delay_text", f"Delay: {delay_ticks} tick{'s' if delay_ticks != 1 else ''} ({delay_sec:.2f}s)")
+
+    def start_mace_swap(self):
+        """Start the mace swap"""
+        if self.mace_swap.start():
+            dpg.set_value("mace_swap_status", "ON")
+            dpg.configure_item("mace_swap_status", color=[100, 255, 100])  # Green
+            dpg.configure_item("mace_swap_start_button", enabled=False)
+            dpg.configure_item("mace_swap_stop_button", enabled=True)
+            self.refresh_debug_logs()
+
+    def stop_mace_swap(self):
+        """Stop the mace swap"""
+        if self.mace_swap.stop():
+            dpg.set_value("mace_swap_status", "OFF")
+            dpg.configure_item("mace_swap_status", color=[255, 100, 100])  # Red
+            dpg.configure_item("mace_swap_start_button", enabled=True)
+            dpg.configure_item("mace_swap_stop_button", enabled=False)
+            self.refresh_debug_logs()
     
     def update_triggerbot_delay_min_ticks(self, sender, value):
         """Update triggerbot delay minimum value in ticks"""
