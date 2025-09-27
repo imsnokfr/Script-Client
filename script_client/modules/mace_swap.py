@@ -133,14 +133,28 @@ class MaceSwap:
             self.add_debug_log(f"Inventory length: {len(inventory)}")
             
             for i, item in enumerate(inventory):
-                if item and hasattr(item, 'id'):
-                    item_id = item.id.lower()
-                    self.add_debug_log(f"Slot {i}: {item_id}")
-                    if 'mace' in item_id:
-                        self.add_debug_log(f"Found mace in slot {i}: {item_id}")
-                        return True
+                if item:
+                    # Try different ways to get item ID
+                    item_id = None
+                    if hasattr(item, 'id'):
+                        item_id = item.id
+                    elif hasattr(item, 'item_id'):
+                        item_id = item.item_id
+                    elif hasattr(item, 'name'):
+                        item_id = item.name
+                    elif isinstance(item, dict):
+                        item_id = item.get('id') or item.get('item_id') or item.get('name')
+                    
+                    if item_id:
+                        item_id = str(item_id).lower()
+                        self.add_debug_log(f"Slot {i}: {item_id}")
+                        if 'mace' in item_id:
+                            self.add_debug_log(f"Found mace in slot {i}: {item_id}")
+                            return True
+                    else:
+                        self.add_debug_log(f"Slot {i}: Item exists but no ID found - {type(item)} - {item}")
                 else:
-                    self.add_debug_log(f"Slot {i}: No item or no ID")
+                    self.add_debug_log(f"Slot {i}: No item")
                     
             self.add_debug_log("No mace found in inventory")
             return False
@@ -160,9 +174,19 @@ class MaceSwap:
                     for i in range(9):
                         if i < len(inventory):
                             item = inventory[i]
-                            if item and hasattr(item, 'id'):
-                                item_id = item.id.lower()
-                                if 'mace' in item_id:
+                            if item:
+                                # Try different ways to get item ID
+                                item_id = None
+                                if hasattr(item, 'id'):
+                                    item_id = item.id
+                                elif hasattr(item, 'item_id'):
+                                    item_id = item.item_id
+                                elif hasattr(item, 'name'):
+                                    item_id = item.name
+                                elif isinstance(item, dict):
+                                    item_id = item.get('id') or item.get('item_id') or item.get('name')
+                                
+                                if item_id and 'mace' in str(item_id).lower():
                                     return i
         except Exception as e:
             self.add_debug_log(f"Mace slot search failed: {e}")
