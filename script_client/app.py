@@ -88,16 +88,7 @@ class ScriptClientApp:
         dpg.add_separator()
         
         # Delay control
-        dpg.add_text("Attack Delay Range:")
-        with dpg.group(horizontal=True):
-            dpg.add_checkbox(
-                label="Use Ticks",
-                default_value=True,
-                callback=self.update_delay_mode,
-                tag="delay_mode_checkbox"
-            )
-            dpg.add_text("(20 ticks = 1 second)", color=[150, 150, 150])
-        
+        dpg.add_text("Attack Delay Range (ticks):")
         with dpg.group(horizontal=True):
             dpg.add_text("Min:")
             dpg.add_input_int(
@@ -120,6 +111,7 @@ class ScriptClientApp:
                 width=80
             )
         dpg.add_text("Range: 2-2 ticks (0.10s-0.10s)", tag="triggerbot_delay_text")
+        dpg.add_text("Note: 20 ticks = 1 second", color=[150, 150, 150])
         
         dpg.add_separator()
         
@@ -152,22 +144,15 @@ class ScriptClientApp:
         
         dpg.add_separator()
         
-        # Line of sight and height validation
+        # Line of sight validation
         dpg.add_text("Target Validation:", color=[255, 255, 255])
-        with dpg.group(horizontal=True):
-            dpg.add_checkbox(
-                label="Check Line of Sight",
-                default_value=True,
-                callback=self.update_line_of_sight_check,
-                tag="line_of_sight_checkbox"
-            )
-            dpg.add_checkbox(
-                label="Check Height",
-                default_value=True,
-                callback=self.update_height_check,
-                tag="height_check_checkbox"
-            )
-        dpg.add_text("Prevents attacking through walls or at invalid heights", color=[150, 150, 150])
+        dpg.add_checkbox(
+            label="Check Line of Sight",
+            default_value=True,
+            callback=self.update_line_of_sight_check,
+            tag="line_of_sight_checkbox"
+        )
+        dpg.add_text("Prevents attacking through walls", color=[150, 150, 150])
         
         dpg.add_separator()
         
@@ -195,17 +180,6 @@ class ScriptClientApp:
             )
         dpg.add_text("0.0% chance to miss", tag="miss_chance_text")
         
-        dpg.add_separator()
-        
-        # Hit mode selection
-        dpg.add_text("Hit Mode:", color=[255, 255, 255])
-        dpg.add_radio_button(
-            items=["Every Hit", "Only Crits", "Mainly Crits", "Crit Hits", "Sprint Hits"],
-            default_value=0,
-            callback=self.update_hit_mode,
-            tag="hit_mode_radio"
-        )
-        dpg.add_text("Every Hit", tag="hit_mode_text", color=[200, 200, 200])
         
         dpg.add_separator()
         
@@ -394,17 +368,6 @@ class ScriptClientApp:
         range_min, range_max = self.triggerbot.get_range_range()
         dpg.set_value("triggerbot_range_text", f"Range: {range_min:.1f} - {range_max:.1f} blocks")
     
-    def update_delay_mode(self, sender, value):
-        """Update delay mode (ticks vs seconds)"""
-        self.triggerbot.set_use_ticks(value)
-        # Update input field types and labels
-        if value:  # Use ticks
-            dpg.configure_item("triggerbot_delay_min_input", min_value=1, max_value=40)
-            dpg.configure_item("triggerbot_delay_max_input", min_value=1, max_value=40)
-        else:  # Use seconds
-            dpg.configure_item("triggerbot_delay_min_input", min_value=0.05, max_value=2.0)
-            dpg.configure_item("triggerbot_delay_max_input", min_value=0.05, max_value=2.0)
-        self._update_delay_text()
     
     def update_miss_chance(self, sender, value):
         """Update miss chance from slider"""
@@ -419,27 +382,11 @@ class ScriptClientApp:
         dpg.set_value("miss_chance_text", f"{value:.1%} chance to miss")
         dpg.set_value("miss_chance_slider", value)
     
-    def update_hit_mode(self, sender, value):
-        """Update hit mode"""
-        modes = ["every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits"]
-        mode_names = ["Every Hit", "Only Crits", "Mainly Crits", "Crit Hits", "Sprint Hits"]
-        try:
-            # Convert value to integer if it's a string
-            if isinstance(value, str):
-                value = int(value)
-            if 0 <= value < len(modes):
-                self.triggerbot.set_hit_mode(modes[value])
-                dpg.set_value("hit_mode_text", mode_names[value])
-        except (ValueError, TypeError) as e:
-            self.triggerbot.add_debug_log(f"Hit mode update error: {e}")
     
     def update_line_of_sight_check(self, sender, value):
         """Update line of sight check setting"""
         self.triggerbot.set_line_of_sight_check(value)
     
-    def update_height_check(self, sender, value):
-        """Update height check setting"""
-        self.triggerbot.set_height_check(value)
     
     def update_attack_method(self, sender, value):
         """Update attack method"""
