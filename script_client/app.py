@@ -142,47 +142,6 @@ class ScriptClientApp:
             )
         dpg.add_text("Range: 3.0 - 3.0 blocks", tag="triggerbot_range_text")
         
-        dpg.add_separator()
-        
-        # Line of sight validation
-        dpg.add_text("Target Validation:", color=[255, 255, 255])
-        dpg.add_checkbox(
-            label="Check Line of Sight",
-            default_value=True,
-            callback=self.update_line_of_sight_check,
-            tag="line_of_sight_checkbox"
-        )
-        dpg.add_text("Prevents attacking through walls", color=[150, 150, 150])
-        
-        dpg.add_separator()
-        
-        # Miss chance control
-        dpg.add_text("Miss Chance:")
-        with dpg.group(horizontal=True):
-            dpg.add_slider_float(
-                label="Miss %",
-                default_value=0.0,
-                min_value=0.0,
-                max_value=1.0,
-                callback=self.update_miss_chance,
-                tag="miss_chance_slider",
-                width=200
-            )
-            dpg.add_input_float(
-                label="",
-                default_value=0.0,
-                min_value=0.0,
-                max_value=1.0,
-                callback=self.update_miss_chance_input,
-                tag="miss_chance_input",
-                width=80,
-                format="%.1%"
-            )
-        dpg.add_text("0.0% chance to miss", tag="miss_chance_text")
-        
-        
-        dpg.add_separator()
-        
         # Attack method selection
         dpg.add_text("Attack Method:", color=[255, 255, 255])
         dpg.add_radio_button(
@@ -368,37 +327,11 @@ class ScriptClientApp:
         range_min, range_max = self.triggerbot.get_range_range()
         dpg.set_value("triggerbot_range_text", f"Range: {range_min:.1f} - {range_max:.1f} blocks")
     
-    
-    def update_miss_chance(self, sender, value):
-        """Update miss chance from slider"""
-        self.triggerbot.set_miss_chance(value)
-        dpg.set_value("miss_chance_text", f"{value:.1%} chance to miss")
-        dpg.set_value("miss_chance_input", value)
-    
-    def update_miss_chance_input(self, sender, value):
-        """Update miss chance from input field"""
-        value = max(0.0, min(1.0, value))
-        self.triggerbot.set_miss_chance(value)
-        dpg.set_value("miss_chance_text", f"{value:.1%} chance to miss")
-        dpg.set_value("miss_chance_slider", value)
-    
-    
-    def update_line_of_sight_check(self, sender, value):
-        """Update line of sight check setting"""
-        self.triggerbot.set_line_of_sight_check(value)
-    
-    
     def update_attack_method(self, sender, value):
         """Update attack method"""
-        try:
-            # Convert value to integer if it's a string
-            if isinstance(value, str):
-                value = int(value)
-            method = "minescript" if value == 0 else "win32"
-            self.triggerbot.set_attack_method(method)
-            dpg.set_value("attack_method_text", method.title())
-        except (ValueError, TypeError) as e:
-            self.triggerbot.add_debug_log(f"Attack method update error: {e}")
+        method = "minescript" if value == 0 else "win32"
+        self.triggerbot.set_attack_method(method)
+        dpg.set_value("attack_method_text", method.title())
     
     def update_weapon_only(self, sender, value):
         """Update weapon-only mode"""

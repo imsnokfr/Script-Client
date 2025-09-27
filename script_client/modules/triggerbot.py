@@ -43,8 +43,6 @@ class Triggerbot:
         self.allowed_weapons = set()  # Set of allowed weapon types
         self.range_min = 3.0  # Minimum attack range in blocks
         self.range_max = 3.0  # Maximum attack range in blocks
-        self.miss_chance = 0.0  # Chance to miss on purpose (0.0-1.0)
-        self.check_line_of_sight = True  # Check for obstacles between player and target
     
     def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
         """Set the attack delay range in ticks"""
@@ -67,51 +65,6 @@ class Triggerbot:
     def seconds_to_ticks(self, seconds):
         """Convert seconds to ticks (1 second = 20 ticks)"""
         return int(seconds * 20)
-    
-    
-    def set_miss_chance(self, miss_chance):
-        """Set the miss chance (0.0-1.0)"""
-        self.miss_chance = max(0.0, min(1.0, miss_chance))
-        self.add_debug_log(f"Miss chance set to: {self.miss_chance:.1%}")
-    
-    
-    def set_line_of_sight_check(self, enabled):
-        """Set whether to check line of sight"""
-        self.check_line_of_sight = enabled
-        self.add_debug_log(f"Line of sight check: {'enabled' if enabled else 'disabled'}")
-    
-    
-    def should_miss(self):
-        """Check if this attack should miss on purpose"""
-        import random
-        return random.random() < self.miss_chance
-    
-    
-    def has_line_of_sight(self, player_pos, target_pos):
-        """Check if there's a clear line of sight to the target"""
-        try:
-            if minescript:
-                # Sample points along the line between player and target
-                steps = 10  # Number of points to check
-                dx = (target_pos[0] - player_pos[0]) / steps
-                dy = (target_pos[1] - player_pos[1]) / steps
-                dz = (target_pos[2] - player_pos[2]) / steps
-                
-                for i in range(1, steps):
-                    check_x = player_pos[0] + (dx * i)
-                    check_y = player_pos[1] + (dy * i)
-                    check_z = player_pos[2] + (dz * i)
-                    
-                    # Check if there's a solid block at this position
-                    block = minescript.getblock(check_x, check_y, check_z)
-                    if block and block != "air" and block != "cave_air":
-                        return False
-                
-                return True
-        except Exception as e:
-            self.add_debug_log(f"Line of sight check failed: {e}")
-            return True  # Default to allowing attack if check fails
-    
     
     def set_attack_method(self, method):
         """Set the attack method: 'minescript' or 'win32'"""
@@ -305,14 +258,6 @@ class Triggerbot:
                                         delay_ticks = self.get_random_delay_ticks()
                                         time.sleep(self.ticks_to_seconds(delay_ticks))
                                         continue
-                                    
-                                    # Check line of sight (if enabled)
-                                    if self.check_line_of_sight and not self.has_line_of_sight(player_pos, target_pos):
-                                        self.add_debug_log(f"Target {target_name} blocked by obstacles - skipping attack")
-                                        delay_ticks = self.get_random_delay_ticks()
-                                        time.sleep(self.ticks_to_seconds(delay_ticks))
-                                        continue
-                                    
                                 else:
                                     self.add_debug_log("Could not get target position - skipping range check")
                             except Exception as e:
@@ -325,24 +270,10 @@ class Triggerbot:
                                 time.sleep(self.ticks_to_seconds(delay_ticks))
                                 continue
                             
-                            
-                            # Check miss chance
-                            if self.should_miss():
-                                self.add_debug_log(f"Intentionally missing attack on {target_name} (miss chance: {self.miss_chance:.1%})")
-                                delay_ticks = self.get_random_delay_ticks()
-                                time.sleep(self.ticks_to_seconds(delay_ticks))
-                                continue
-                            
                             # Attack the target using selected method
                             current_delay_ticks = self.get_random_delay_ticks()
                             current_delay_seconds = self.ticks_to_seconds(current_delay_ticks)
-                            hit_info = f"mode: {self.hit_mode}"
-                            if self.can_crit():
-                                hit_info += " (CRIT!)"
-                            if self.is_sprinting():
-                                hit_info += " (SPRINT!)"
-                            
-                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay_ticks} ticks / {current_delay_seconds:.3f}s, {hit_info}, method: {self.attack_method})")
+                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay_ticks} ticks / {current_delay_seconds:.3f}s, method: {self.attack_method})")
                             
                             if self.attack_method == "minescript":
                                 # Use Minescript attack method
