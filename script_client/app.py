@@ -254,7 +254,7 @@ class ScriptClientApp:
             callback=self.update_shield_macro_enabled,
             tag="shield_macro_enabled_checkbox"
         )
-        dpg.add_text("Auto switch to axe and disable shield when looking at players", color=[200, 200, 200])
+        dpg.add_text("Auto switch to axe and attack players holding shields", color=[200, 200, 200])
         
         # Shield Macro Delay control
         dpg.add_text("Macro Delay Range (ticks):")
@@ -297,7 +297,7 @@ class ScriptClientApp:
                 width=150
             )
         
-        dpg.add_text("Instructions: Hold shield in off-hand, look at players to auto-switch to axe", color=[200, 200, 200])
+        dpg.add_text("Instructions: Look at players holding shields to auto-switch to axe and attack", color=[200, 200, 200])
     
     # Shield Macro callback methods
     def update_shield_macro_enabled(self, sender, value):

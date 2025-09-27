@@ -115,17 +115,24 @@ class ShieldMacro:
             self.add_debug_log(f"Shield check failed: {e}")
         return False
     
-    def is_target_player(self):
-        """Check if the targeted entity is a player"""
+    def is_target_player_with_shield(self):
+        """Check if the targeted entity is a player holding a shield"""
         try:
             if minescript:
                 target = minescript.player_get_targeted_entity()
                 if target and hasattr(target, 'type'):
                     # Check if it's a player
                     if target.type == 'player':
-                        return True
+                        # Check if target is holding a shield in off-hand
+                        target_hand_items = minescript.get_entity_hand_items(target)
+                        if target_hand_items and hasattr(target_hand_items, 'off_hand'):
+                            off_hand_item = target_hand_items.off_hand
+                            if off_hand_item and hasattr(off_hand_item, 'id'):
+                                item_id = off_hand_item.id.lower()
+                                if 'shield' in item_id:
+                                    return True
         except Exception as e:
-            self.add_debug_log(f"Target check failed: {e}")
+            self.add_debug_log(f"Target shield check failed: {e}")
         return False
     
     def switch_to_axe(self, slot):
@@ -141,18 +148,18 @@ class ShieldMacro:
             self.add_debug_log(f"Switch to axe failed: {e}")
         return False
     
-    def disable_shield(self):
-        """Disable the shield by right-clicking"""
+    def attack_with_axe(self):
+        """Attack with axe to disable target's shield"""
         try:
             if minescript:
-                # Right-click to disable shield
-                minescript.player_press_attack(True)  # Press right mouse button
+                # Attack to disable target's shield
+                minescript.player_press_attack(True)  # Press left mouse button
                 time.sleep(0.05)  # Small delay
-                minescript.player_press_attack(False)  # Release right mouse button
-                self.add_debug_log("Disabled shield")
+                minescript.player_press_attack(False)  # Release left mouse button
+                self.add_debug_log("Attacked with axe to disable shield")
                 return True
         except Exception as e:
-            self.add_debug_log(f"Disable shield failed: {e}")
+            self.add_debug_log(f"Axe attack failed: {e}")
         return False
     
     def _shield_macro_loop(self):
@@ -165,14 +172,8 @@ class ShieldMacro:
                     time.sleep(0.1)
                     continue
                 
-                # Check if we're currently holding a shield
-                if not self.is_holding_shield():
-                    delay_ticks = self.get_random_delay_ticks()
-                    time.sleep(self.ticks_to_seconds(delay_ticks))
-                    continue
-                
-                # Check if we're looking at a player
-                if not self.is_target_player():
+                # Check if we're looking at a player holding a shield
+                if not self.is_target_player_with_shield():
                     delay_ticks = self.get_random_delay_ticks()
                     time.sleep(self.ticks_to_seconds(delay_ticks))
                     continue
@@ -192,14 +193,14 @@ class ShieldMacro:
                     time.sleep(self.ticks_to_seconds(delay_ticks))
                     continue
                 
-                # Switch to axe
+                # Switch to axe and attack to disable target's shield
                 if self.switch_to_axe(axe_slot):
                     time.sleep(0.1)  # Wait for switch
                     
-                    # Disable shield
-                    self.disable_shield()
+                    # Attack with axe to disable target's shield
+                    self.attack_with_axe()
                     
-                    self.add_debug_log("Shield macro executed successfully")
+                    self.add_debug_log("Shield macro executed successfully - attacked with axe")
                 
                 # Wait before next check
                 delay_ticks = self.get_random_delay_ticks()
