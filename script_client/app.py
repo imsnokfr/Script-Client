@@ -89,28 +89,52 @@ class ScriptClientApp:
         
         # Delay control
         dpg.add_text("Attack Delay (seconds):")
-        dpg.add_slider_float(
-            label="Delay",
-            default_value=0.1,
-            min_value=0.05,
-            max_value=2.0,
-            callback=self.update_triggerbot_delay,
-            tag="triggerbot_delay_slider"
-        )
+        with dpg.group(horizontal=True):
+            dpg.add_slider_float(
+                label="Delay",
+                default_value=0.1,
+                min_value=0.05,
+                max_value=2.0,
+                callback=self.update_triggerbot_delay,
+                tag="triggerbot_delay_slider",
+                width=200
+            )
+            dpg.add_input_float(
+                label="",
+                default_value=0.1,
+                min_value=0.05,
+                max_value=2.0,
+                callback=self.update_triggerbot_delay_input,
+                tag="triggerbot_delay_input",
+                width=80,
+                format="%.2f"
+            )
         dpg.add_text("0.1s", tag="triggerbot_delay_text")
         
         dpg.add_separator()
         
         # Range control
         dpg.add_text("Attack Range (blocks):")
-        dpg.add_slider_float(
-            label="Range",
-            default_value=3.0,
-            min_value=1.0,
-            max_value=10.0,
-            callback=self.update_triggerbot_range,
-            tag="triggerbot_range_slider"
-        )
+        with dpg.group(horizontal=True):
+            dpg.add_slider_float(
+                label="Range",
+                default_value=3.0,
+                min_value=1.0,
+                max_value=10.0,
+                callback=self.update_triggerbot_range,
+                tag="triggerbot_range_slider",
+                width=200
+            )
+            dpg.add_input_float(
+                label="",
+                default_value=3.0,
+                min_value=1.0,
+                max_value=10.0,
+                callback=self.update_triggerbot_range_input,
+                tag="triggerbot_range_input",
+                width=80,
+                format="%.1f"
+            )
         dpg.add_text("3.0 blocks", tag="triggerbot_range_text")
         
         # Attack method selection
@@ -247,14 +271,32 @@ class ScriptClientApp:
         dpg.set_value("debug_logs_text", "Debug logs cleared.")
     
     def update_triggerbot_delay(self, sender, value):
-        """Update triggerbot delay value"""
+        """Update triggerbot delay value from slider"""
         self.triggerbot.set_delay(value)
         dpg.set_value("triggerbot_delay_text", f"{value:.2f}s")
+        dpg.set_value("triggerbot_delay_input", value)
+    
+    def update_triggerbot_delay_input(self, sender, value):
+        """Update triggerbot delay value from input field"""
+        # Clamp value to valid range
+        value = max(0.05, min(2.0, value))
+        self.triggerbot.set_delay(value)
+        dpg.set_value("triggerbot_delay_text", f"{value:.2f}s")
+        dpg.set_value("triggerbot_delay_slider", value)
     
     def update_triggerbot_range(self, sender, value):
-        """Update triggerbot range value"""
+        """Update triggerbot range value from slider"""
         self.triggerbot.set_max_range(value)
         dpg.set_value("triggerbot_range_text", f"{value:.1f} blocks")
+        dpg.set_value("triggerbot_range_input", value)
+    
+    def update_triggerbot_range_input(self, sender, value):
+        """Update triggerbot range value from input field"""
+        # Clamp value to valid range
+        value = max(1.0, min(10.0, value))
+        self.triggerbot.set_max_range(value)
+        dpg.set_value("triggerbot_range_text", f"{value:.1f} blocks")
+        dpg.set_value("triggerbot_range_slider", value)
     
     def update_attack_method(self, sender, value):
         """Update attack method"""
