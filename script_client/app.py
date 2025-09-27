@@ -111,6 +111,64 @@ class ScriptClientApp:
         
         dpg.add_separator()
         
+        # Weapon-only mode
+        dpg.add_checkbox(
+            label="Weapon Only Mode",
+            callback=self.update_weapon_only,
+            tag="weapon_only_checkbox"
+        )
+        dpg.add_text("Only attack when holding a weapon", color=[200, 200, 200])
+        
+        # Weapon selector (initially hidden)
+        dpg.add_button(
+            label="Select Weapons",
+            callback=self.toggle_weapon_selector,
+            tag="weapon_selector_button",
+            width=150
+        )
+        
+        # Weapon selector window (initially hidden)
+        with dpg.window(label="Weapon Selector", tag="weapon_selector_window", 
+                       width=400, height=300, show=False, modal=True):
+            dpg.add_text("Select which weapons to allow:", color=[255, 255, 255])
+            dpg.add_separator()
+            
+            # Weapon checkboxes
+            weapons = [
+                ("sword", "Sword", "textures/item/iron_sword.png"),
+                ("axe", "Axe", "textures/item/iron_axe.png"), 
+                ("mace", "Mace", "textures/item/mace.png"),
+                ("trident", "Trident", "textures/item/trident.png"),
+                ("bow", "Bow", "textures/item/bow.png"),
+                ("crossbow", "Crossbow", "textures/item/crossbow_standby.png")
+            ]
+            
+            for weapon_id, weapon_name, texture_path in weapons:
+                with dpg.group(horizontal=True):
+                    dpg.add_checkbox(
+                        label=weapon_name,
+                        callback=lambda s, a, u: self.update_weapon_selection(weapon_id, a),
+                        tag=f"weapon_{weapon_id}_checkbox"
+                    )
+                    # Try to load weapon texture
+                    try:
+                        full_path = os.path.join(self.textures_path, texture_path)
+                        if os.path.exists(full_path):
+                            with dpg.texture_registry():
+                                dpg.add_static_texture(width=16, height=16, 
+                                                     default_value=[255, 255, 255, 255], 
+                                                     tag=f"weapon_{weapon_id}_texture")
+                            dpg.add_image(f"weapon_{weapon_id}_texture", width=16, height=16)
+                    except:
+                        pass
+            
+            dpg.add_separator()
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Apply", callback=self.apply_weapon_selection, width=100)
+                dpg.add_button(label="Cancel", callback=self.close_weapon_selector, width=100)
+        
+        dpg.add_separator()
+        
         # Control buttons
         with dpg.group(horizontal=True):
             dpg.add_button(
@@ -184,6 +242,35 @@ class ScriptClientApp:
         method = "minescript" if value == 0 else "win32"
         self.triggerbot.set_attack_method(method)
         dpg.set_value("attack_method_text", method.title())
+    
+    def update_weapon_only(self, sender, value):
+        """Update weapon-only mode"""
+        self.triggerbot.set_weapon_only(value)
+    
+    def toggle_weapon_selector(self):
+        """Toggle weapon selector window"""
+        dpg.show_item("weapon_selector_window")
+    
+    def close_weapon_selector(self):
+        """Close weapon selector window"""
+        dpg.hide_item("weapon_selector_window")
+    
+    def update_weapon_selection(self, weapon_id, enabled):
+        """Update individual weapon selection"""
+        # This will be handled in apply_weapon_selection
+        pass
+    
+    def apply_weapon_selection(self):
+        """Apply weapon selection"""
+        selected_weapons = []
+        weapons = ["sword", "axe", "mace", "trident", "bow", "crossbow"]
+        
+        for weapon in weapons:
+            if dpg.get_value(f"weapon_{weapon}_checkbox"):
+                selected_weapons.append(weapon)
+        
+        self.triggerbot.set_allowed_weapons(selected_weapons)
+        dpg.hide_item("weapon_selector_window")
     
     def start_triggerbot(self):
         """Start the triggerbot"""

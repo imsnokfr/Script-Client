@@ -38,6 +38,8 @@ class Triggerbot:
         self.debug_logs = []
         self.max_logs = 50  # Keep last 50 logs
         self.attack_method = "minescript"  # "minescript" or "win32"
+        self.weapon_only = False  # Only attack when holding a weapon
+        self.allowed_weapons = set()  # Set of allowed weapon types
     
     def set_delay(self, delay):
         """Set the attack delay"""
@@ -59,12 +61,70 @@ class Triggerbot:
         """Get the current attack method"""
         return self.attack_method
     
+    def set_weapon_only(self, enabled):
+        """Set whether to only attack when holding a weapon"""
+        self.weapon_only = enabled
+    
+    def get_weapon_only(self):
+        """Get whether weapon-only mode is enabled"""
+        return self.weapon_only
+    
+    def set_allowed_weapons(self, weapons):
+        """Set the allowed weapon types"""
+        self.allowed_weapons = set(weapons)
+    
+    def get_allowed_weapons(self):
+        """Get the allowed weapon types"""
+        return list(self.allowed_weapons)
+    
+    def is_holding_weapon(self):
+        """Check if player is holding a weapon"""
+        if not minescript:
+            return True  # Assume weapon if minescript not available
+        
+        try:
+            hand_items = minescript.player_hand_items()
+            if not hand_items:
+                return False
+            
+            # Check main hand and off hand
+            for hand in [hand_items.main_hand, hand_items.off_hand]:
+                if hand and hasattr(hand, 'item'):
+                    item_name = hand.item.lower()
+                    
+                    # Check if it's a weapon
+                    weapon_types = ['sword', 'axe', 'mace', 'trident', 'bow', 'crossbow']
+                    if any(weapon in item_name for weapon in weapon_types):
+                        # If we have specific weapon filters, check them
+                        if self.allowed_weapons:
+                            if any(weapon in item_name for weapon in self.allowed_weapons):
+                                return True
+                        else:
+                            return True
+            
+            return False
+        except Exception as e:
+            self.add_debug_log(f"Weapon check failed: {e}")
+            return True  # Default to allowing attack if check fails
+    
     def start(self):
         """Start the triggerbot"""
         if not self.is_running:
             self.is_running = True
             self.triggerbot_thread = threading.Thread(target=self._triggerbot_loop, daemon=True)
             self.triggerbot_thread.start()
+            
+            # Test Minescript attack function
+            if minescript:
+                try:
+                    self.add_debug_log("Testing Minescript attack function...")
+                    minescript.player_press_attack(True)
+                    time.sleep(0.1)
+                    minescript.player_press_attack(False)
+                    self.add_debug_log("Minescript attack test successful")
+                except Exception as e:
+                    self.add_debug_log(f"Minescript attack test failed: {e}")
+            
             return True
         return False
     
@@ -91,13 +151,6 @@ class Triggerbot:
         # Keep only the last max_logs entries
         if len(self.debug_logs) > self.max_logs:
             self.debug_logs = self.debug_logs[-self.max_logs:]
-        
-        # Also log to chat if minescript is available
-        if minescript:
-            try:
-                minescript.echo(log_entry)
-            except:
-                pass
     
     def _triggerbot_loop(self):
         """Main triggerbot logic"""
@@ -121,9 +174,20 @@ class Triggerbot:
                         self.add_debug_log(f"Target attributes: {attrs}")
                         
                         # EntityData object has 'type' attribute, not dictionary access
-                        if hasattr(target, 'type') and target.type in ['mob', 'player']:
+                        # Check if it's a valid target (be more permissive)
+                        target_type = getattr(target, 'type', 'unknown')
+                        self.add_debug_log(f"Target type: {target_type}")
+                        
+                        # Attack any entity that's not the player themselves
+                        if target_type != 'player' or (hasattr(target, 'name') and target.name != 'Player'):
+                            # Check weapon requirement
+                            if self.weapon_only and not self.is_holding_weapon():
+                                self.add_debug_log("No weapon detected - skipping attack")
+                                time.sleep(self.delay)
+                                continue
+                            
                             # Attack the target using selected method
-                            self.add_debug_log(f"Attacking {target.name} (delay: {self.delay}s, method: {self.attack_method})")
+                            self.add_debug_log(f"Attacking {target_name} (delay: {self.delay}s, method: {self.attack_method})")
                             
                             if self.attack_method == "minescript":
                                 # Use Minescript attack method
