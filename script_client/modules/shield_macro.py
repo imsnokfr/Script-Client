@@ -160,7 +160,7 @@ class ShieldMacro:
                 return False
                 
             self.add_debug_log("Checking for target player with shield...")
-            target = minescript.player_get_targeted_entity()
+            target = minescript.player_get_targeted_entity(nbt=True)
             
             if not target:
                 self.add_debug_log("No target entity found")
@@ -181,39 +181,39 @@ class ShieldMacro:
                 
             self.add_debug_log("Target is a player, checking for shield...")
             
-            # Check if target is holding a shield in main hand or off-hand
-            target_hand_items = minescript.get_entity_hand_items(target)
-            self.add_debug_log(f"Target hand items: {type(target_hand_items)}")
+            # Check if target is holding a shield using NBT data
+            self.add_debug_log("Checking target's NBT data for shield...")
             
-            if not target_hand_items:
-                self.add_debug_log("No hand items found for target")
+            if not hasattr(target, 'nbt'):
+                self.add_debug_log("Target has no NBT data")
+                return False
+                
+            nbt_data = target.nbt
+            self.add_debug_log(f"NBT data: {nbt_data}")
+            
+            if not nbt_data:
+                self.add_debug_log("NBT data is empty")
                 return False
             
-            # Check main hand first
-            main_hand_item = None
-            off_hand_item = None
-            
-            if hasattr(target_hand_items, 'main_hand'):
-                main_hand_item = target_hand_items.main_hand
-                self.add_debug_log(f"Main hand item: {main_hand_item}")
-                
-            if hasattr(target_hand_items, 'off_hand'):
-                off_hand_item = target_hand_items.off_hand
-                self.add_debug_log(f"Off-hand item: {off_hand_item}")
-            
             # Check main hand for shield
-            if main_hand_item and hasattr(main_hand_item, 'id'):
-                main_item_id = main_hand_item.id.lower()
+            main_hand_item = nbt_data.get("MainHand", {})
+            self.add_debug_log(f"Main hand NBT: {main_hand_item}")
+            
+            if main_hand_item:
+                main_item_id = main_hand_item.get("id", "")
                 self.add_debug_log(f"Main hand item ID: {main_item_id}")
-                if 'shield' in main_item_id:
+                if main_item_id == "minecraft:shield":
                     self.add_debug_log("Target is holding a shield in main hand!")
                     return True
             
             # Check off-hand for shield
-            if off_hand_item and hasattr(off_hand_item, 'id'):
-                off_item_id = off_hand_item.id.lower()
+            off_hand_item = nbt_data.get("OffHand", {})
+            self.add_debug_log(f"Off-hand NBT: {off_hand_item}")
+            
+            if off_hand_item:
+                off_item_id = off_hand_item.get("id", "")
                 self.add_debug_log(f"Off-hand item ID: {off_item_id}")
-                if 'shield' in off_item_id:
+                if off_item_id == "minecraft:shield":
                     self.add_debug_log("Target has shield in off-hand!")
                     return True
             
