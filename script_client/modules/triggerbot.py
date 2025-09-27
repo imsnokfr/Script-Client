@@ -40,6 +40,7 @@ class Triggerbot:
         self.attack_method = "minescript"  # "minescript" or "win32"
         self.weapon_only = False  # Only attack when holding a weapon
         self.allowed_weapons = set()  # Set of allowed weapon types
+        self.max_range = 3.0  # Maximum attack range in blocks
     
     def set_delay(self, delay):
         """Set the attack delay"""
@@ -76,6 +77,46 @@ class Triggerbot:
     def get_allowed_weapons(self):
         """Get the allowed weapon types"""
         return list(self.allowed_weapons)
+    
+    def set_max_range(self, range_blocks):
+        """Set the maximum attack range in blocks"""
+        self.max_range = range_blocks
+    
+    def get_max_range(self):
+        """Get the maximum attack range in blocks"""
+        return self.max_range
+    
+    def calculate_distance(self, pos1, pos2):
+        """Calculate 3D distance between two positions"""
+        if not pos1 or not pos2:
+            return float('inf')
+        
+        try:
+            # Handle different position formats
+            if hasattr(pos1, 'x') and hasattr(pos1, 'y') and hasattr(pos1, 'z'):
+                x1, y1, z1 = pos1.x, pos1.y, pos1.z
+            elif isinstance(pos1, (list, tuple)) and len(pos1) >= 3:
+                x1, y1, z1 = pos1[0], pos1[1], pos1[2]
+            else:
+                return float('inf')
+            
+            if hasattr(pos2, 'x') and hasattr(pos2, 'y') and hasattr(pos2, 'z'):
+                x2, y2, z2 = pos2.x, pos2.y, pos2.z
+            elif isinstance(pos2, (list, tuple)) and len(pos2) >= 3:
+                x2, y2, z2 = pos2[0], pos2[1], pos2[2]
+            else:
+                return float('inf')
+            
+            # Calculate 3D distance
+            dx = x2 - x1
+            dy = y2 - y1
+            dz = z2 - z1
+            distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+            
+            return distance
+        except Exception as e:
+            self.add_debug_log(f"Distance calculation failed: {e}")
+            return float('inf')
     
     def is_holding_weapon(self):
         """Check if player is holding a weapon"""
@@ -180,6 +221,24 @@ class Triggerbot:
                         
                         # Attack any entity that's not the player themselves
                         if target_type != 'player' or (hasattr(target, 'name') and target.name != 'Player'):
+                            # Check range requirement
+                            try:
+                                player_pos = minescript.player_position()
+                                target_pos = getattr(target, 'position', None)
+                                
+                                if target_pos:
+                                    distance = self.calculate_distance(player_pos, target_pos)
+                                    self.add_debug_log(f"Distance to {target_name}: {distance:.2f} blocks")
+                                    
+                                    if distance > self.max_range:
+                                        self.add_debug_log(f"Target {target_name} too far ({distance:.2f} > {self.max_range}) - skipping attack")
+                                        time.sleep(self.delay)
+                                        continue
+                                else:
+                                    self.add_debug_log("Could not get target position - skipping range check")
+                            except Exception as e:
+                                self.add_debug_log(f"Range check failed: {e} - skipping range check")
+                            
                             # Check weapon requirement
                             if self.weapon_only and not self.is_holding_weapon():
                                 self.add_debug_log("No weapon detected - skipping attack")

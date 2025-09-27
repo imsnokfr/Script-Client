@@ -99,6 +99,20 @@ class ScriptClientApp:
         )
         dpg.add_text("0.1s", tag="triggerbot_delay_text")
         
+        dpg.add_separator()
+        
+        # Range control
+        dpg.add_text("Attack Range (blocks):")
+        dpg.add_slider_float(
+            label="Range",
+            default_value=3.0,
+            min_value=1.0,
+            max_value=10.0,
+            callback=self.update_triggerbot_range,
+            tag="triggerbot_range_slider"
+        )
+        dpg.add_text("3.0 blocks", tag="triggerbot_range_text")
+        
         # Attack method selection
         dpg.add_text("Attack Method:", color=[255, 255, 255])
         dpg.add_radio_button(
@@ -236,6 +250,11 @@ class ScriptClientApp:
         """Update triggerbot delay value"""
         self.triggerbot.set_delay(value)
         dpg.set_value("triggerbot_delay_text", f"{value:.2f}s")
+    
+    def update_triggerbot_range(self, sender, value):
+        """Update triggerbot range value"""
+        self.triggerbot.set_max_range(value)
+        dpg.set_value("triggerbot_range_text", f"{value:.1f} blocks")
     
     def update_attack_method(self, sender, value):
         """Update attack method"""
