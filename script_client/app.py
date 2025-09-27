@@ -88,54 +88,60 @@ class ScriptClientApp:
         dpg.add_separator()
         
         # Delay control
-        dpg.add_text("Attack Delay (seconds):")
+        dpg.add_text("Attack Delay Range (seconds):")
         with dpg.group(horizontal=True):
-            dpg.add_slider_float(
-                label="Delay",
-                default_value=0.1,
-                min_value=0.05,
-                max_value=2.0,
-                callback=self.update_triggerbot_delay,
-                tag="triggerbot_delay_slider",
-                width=200
-            )
+            dpg.add_text("Min:")
             dpg.add_input_float(
                 label="",
                 default_value=0.1,
                 min_value=0.05,
                 max_value=2.0,
-                callback=self.update_triggerbot_delay_input,
-                tag="triggerbot_delay_input",
+                callback=self.update_triggerbot_delay_min,
+                tag="triggerbot_delay_min_input",
                 width=80,
                 format="%.2f"
             )
-        dpg.add_text("0.1s", tag="triggerbot_delay_text")
+            dpg.add_text("Max:")
+            dpg.add_input_float(
+                label="",
+                default_value=0.1,
+                min_value=0.05,
+                max_value=2.0,
+                callback=self.update_triggerbot_delay_max,
+                tag="triggerbot_delay_max_input",
+                width=80,
+                format="%.2f"
+            )
+        dpg.add_text("Range: 0.1s - 0.1s", tag="triggerbot_delay_text")
         
         dpg.add_separator()
         
         # Range control
-        dpg.add_text("Attack Range (blocks):")
+        dpg.add_text("Attack Range Range (blocks):")
         with dpg.group(horizontal=True):
-            dpg.add_slider_float(
-                label="Range",
-                default_value=3.0,
-                min_value=1.0,
-                max_value=10.0,
-                callback=self.update_triggerbot_range,
-                tag="triggerbot_range_slider",
-                width=200
-            )
+            dpg.add_text("Min:")
             dpg.add_input_float(
                 label="",
                 default_value=3.0,
                 min_value=1.0,
                 max_value=10.0,
-                callback=self.update_triggerbot_range_input,
-                tag="triggerbot_range_input",
+                callback=self.update_triggerbot_range_min,
+                tag="triggerbot_range_min_input",
                 width=80,
                 format="%.1f"
             )
-        dpg.add_text("3.0 blocks", tag="triggerbot_range_text")
+            dpg.add_text("Max:")
+            dpg.add_input_float(
+                label="",
+                default_value=3.0,
+                min_value=1.0,
+                max_value=10.0,
+                callback=self.update_triggerbot_range_max,
+                tag="triggerbot_range_max_input",
+                width=80,
+                format="%.1f"
+            )
+        dpg.add_text("Range: 3.0 - 3.0 blocks", tag="triggerbot_range_text")
         
         # Attack method selection
         dpg.add_text("Attack Method:", color=[255, 255, 255])
@@ -270,33 +276,55 @@ class ScriptClientApp:
         self.triggerbot.debug_logs.clear()
         dpg.set_value("debug_logs_text", "Debug logs cleared.")
     
-    def update_triggerbot_delay(self, sender, value):
-        """Update triggerbot delay value from slider"""
-        self.triggerbot.set_delay(value)
-        dpg.set_value("triggerbot_delay_text", f"{value:.2f}s")
-        dpg.set_value("triggerbot_delay_input", value)
-    
-    def update_triggerbot_delay_input(self, sender, value):
-        """Update triggerbot delay value from input field"""
+    def update_triggerbot_delay_min(self, sender, value):
+        """Update triggerbot delay minimum value"""
         # Clamp value to valid range
         value = max(0.05, min(2.0, value))
-        self.triggerbot.set_delay(value)
-        dpg.set_value("triggerbot_delay_text", f"{value:.2f}s")
-        dpg.set_value("triggerbot_delay_slider", value)
+        delay_min, delay_max = self.triggerbot.get_delay_range()
+        if value > delay_max:
+            value = delay_max
+        self.triggerbot.set_delay_range(value, delay_max)
+        self._update_delay_text()
     
-    def update_triggerbot_range(self, sender, value):
-        """Update triggerbot range value from slider"""
-        self.triggerbot.set_max_range(value)
-        dpg.set_value("triggerbot_range_text", f"{value:.1f} blocks")
-        dpg.set_value("triggerbot_range_input", value)
+    def update_triggerbot_delay_max(self, sender, value):
+        """Update triggerbot delay maximum value"""
+        # Clamp value to valid range
+        value = max(0.05, min(2.0, value))
+        delay_min, delay_max = self.triggerbot.get_delay_range()
+        if value < delay_min:
+            value = delay_min
+        self.triggerbot.set_delay_range(delay_min, value)
+        self._update_delay_text()
     
-    def update_triggerbot_range_input(self, sender, value):
-        """Update triggerbot range value from input field"""
+    def _update_delay_text(self):
+        """Update delay text display"""
+        delay_min, delay_max = self.triggerbot.get_delay_range()
+        dpg.set_value("triggerbot_delay_text", f"Range: {delay_min:.2f}s - {delay_max:.2f}s")
+    
+    def update_triggerbot_range_min(self, sender, value):
+        """Update triggerbot range minimum value"""
         # Clamp value to valid range
         value = max(1.0, min(10.0, value))
-        self.triggerbot.set_max_range(value)
-        dpg.set_value("triggerbot_range_text", f"{value:.1f} blocks")
-        dpg.set_value("triggerbot_range_slider", value)
+        range_min, range_max = self.triggerbot.get_range_range()
+        if value > range_max:
+            value = range_max
+        self.triggerbot.set_range_range(value, range_max)
+        self._update_range_text()
+    
+    def update_triggerbot_range_max(self, sender, value):
+        """Update triggerbot range maximum value"""
+        # Clamp value to valid range
+        value = max(1.0, min(10.0, value))
+        range_min, range_max = self.triggerbot.get_range_range()
+        if value < range_min:
+            value = range_min
+        self.triggerbot.set_range_range(range_min, value)
+        self._update_range_text()
+    
+    def _update_range_text(self):
+        """Update range text display"""
+        range_min, range_max = self.triggerbot.get_range_range()
+        dpg.set_value("triggerbot_range_text", f"Range: {range_min:.1f} - {range_max:.1f} blocks")
     
     def update_attack_method(self, sender, value):
         """Update attack method"""

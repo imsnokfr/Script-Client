@@ -33,22 +33,30 @@ except ImportError:
 class Triggerbot:
     def __init__(self):
         self.is_running = False
-        self.delay = 0.1  # Default delay in seconds
+        self.delay_min = 0.1  # Minimum delay in seconds
+        self.delay_max = 0.1  # Maximum delay in seconds
         self.triggerbot_thread = None
         self.debug_logs = []
         self.max_logs = 50  # Keep last 50 logs
         self.attack_method = "minescript"  # "minescript" or "win32"
         self.weapon_only = False  # Only attack when holding a weapon
         self.allowed_weapons = set()  # Set of allowed weapon types
-        self.max_range = 3.0  # Maximum attack range in blocks
+        self.range_min = 3.0  # Minimum attack range in blocks
+        self.range_max = 3.0  # Maximum attack range in blocks
     
-    def set_delay(self, delay):
-        """Set the attack delay"""
-        self.delay = delay
+    def set_delay_range(self, delay_min, delay_max):
+        """Set the attack delay range"""
+        self.delay_min = delay_min
+        self.delay_max = delay_max
     
-    def get_delay(self):
-        """Get the current attack delay"""
-        return self.delay
+    def get_delay_range(self):
+        """Get the current delay range"""
+        return self.delay_min, self.delay_max
+    
+    def get_random_delay(self):
+        """Get a random delay within the range"""
+        import random
+        return random.uniform(self.delay_min, self.delay_max)
     
     def set_attack_method(self, method):
         """Set the attack method: 'minescript' or 'win32'"""
@@ -78,13 +86,19 @@ class Triggerbot:
         """Get the allowed weapon types"""
         return list(self.allowed_weapons)
     
-    def set_max_range(self, range_blocks):
-        """Set the maximum attack range in blocks"""
-        self.max_range = range_blocks
+    def set_range_range(self, range_min, range_max):
+        """Set the attack range range"""
+        self.range_min = range_min
+        self.range_max = range_max
     
-    def get_max_range(self):
-        """Get the maximum attack range in blocks"""
-        return self.max_range
+    def get_range_range(self):
+        """Get the current range range"""
+        return self.range_min, self.range_max
+    
+    def get_random_range(self):
+        """Get a random range within the range"""
+        import random
+        return random.uniform(self.range_min, self.range_max)
     
     def calculate_distance(self, pos1, pos2):
         """Calculate 3D distance between two positions"""
@@ -228,11 +242,12 @@ class Triggerbot:
                                 
                                 if target_pos:
                                     distance = self.calculate_distance(player_pos, target_pos)
-                                    self.add_debug_log(f"Distance to {target_name}: {distance:.2f} blocks")
+                                    max_range = self.get_random_range()
+                                    self.add_debug_log(f"Distance to {target_name}: {distance:.2f} blocks (max: {max_range:.2f})")
                                     
-                                    if distance > self.max_range:
-                                        self.add_debug_log(f"Target {target_name} too far ({distance:.2f} > {self.max_range}) - skipping attack")
-                                        time.sleep(self.delay)
+                                    if distance > max_range:
+                                        self.add_debug_log(f"Target {target_name} too far ({distance:.2f} > {max_range:.2f}) - skipping attack")
+                                        time.sleep(self.get_random_delay())
                                         continue
                                 else:
                                     self.add_debug_log("Could not get target position - skipping range check")
@@ -242,11 +257,12 @@ class Triggerbot:
                             # Check weapon requirement
                             if self.weapon_only and not self.is_holding_weapon():
                                 self.add_debug_log("No weapon detected - skipping attack")
-                                time.sleep(self.delay)
+                                time.sleep(self.get_random_delay())
                                 continue
                             
                             # Attack the target using selected method
-                            self.add_debug_log(f"Attacking {target_name} (delay: {self.delay}s, method: {self.attack_method})")
+                            current_delay = self.get_random_delay()
+                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay:.3f}s, method: {self.attack_method})")
                             
                             if self.attack_method == "minescript":
                                 # Use Minescript attack method
@@ -263,7 +279,7 @@ class Triggerbot:
                                 # Use Win32 API attack method
                                 self._win32_attack()
                             
-                            time.sleep(self.delay)
+                            time.sleep(current_delay)
                         else:
                             # Small delay when no valid target
                             time.sleep(0.01)
