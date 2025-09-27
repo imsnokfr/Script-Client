@@ -423,9 +423,15 @@ class ScriptClientApp:
         """Update hit mode"""
         modes = ["every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits"]
         mode_names = ["Every Hit", "Only Crits", "Mainly Crits", "Crit Hits", "Sprint Hits"]
-        if 0 <= value < len(modes):
-            self.triggerbot.set_hit_mode(modes[value])
-            dpg.set_value("hit_mode_text", mode_names[value])
+        try:
+            # Convert value to integer if it's a string
+            if isinstance(value, str):
+                value = int(value)
+            if 0 <= value < len(modes):
+                self.triggerbot.set_hit_mode(modes[value])
+                dpg.set_value("hit_mode_text", mode_names[value])
+        except (ValueError, TypeError) as e:
+            self.triggerbot.add_debug_log(f"Hit mode update error: {e}")
     
     def update_line_of_sight_check(self, sender, value):
         """Update line of sight check setting"""
@@ -437,9 +443,15 @@ class ScriptClientApp:
     
     def update_attack_method(self, sender, value):
         """Update attack method"""
-        method = "minescript" if value == 0 else "win32"
-        self.triggerbot.set_attack_method(method)
-        dpg.set_value("attack_method_text", method.title())
+        try:
+            # Convert value to integer if it's a string
+            if isinstance(value, str):
+                value = int(value)
+            method = "minescript" if value == 0 else "win32"
+            self.triggerbot.set_attack_method(method)
+            dpg.set_value("attack_method_text", method.title())
+        except (ValueError, TypeError) as e:
+            self.triggerbot.add_debug_log(f"Attack method update error: {e}")
     
     def update_weapon_only(self, sender, value):
         """Update weapon-only mode"""
