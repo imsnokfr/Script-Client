@@ -174,45 +174,51 @@ class ShieldMacro:
                 
             self.add_debug_log(f"Target type: {target.type}")
             
-            # Check if it's a player
-            if target.type != 'player':
+            # Check if it's a player (can be 'player' or 'entity.minecraft.player')
+            if target.type not in ['player', 'entity.minecraft.player']:
                 self.add_debug_log(f"Target is not a player (type: {target.type})")
                 return False
                 
             self.add_debug_log("Target is a player, checking for shield...")
             
-            # Check if target is holding a shield in off-hand
+            # Check if target is holding a shield in main hand or off-hand
             target_hand_items = minescript.get_entity_hand_items(target)
             self.add_debug_log(f"Target hand items: {type(target_hand_items)}")
             
             if not target_hand_items:
                 self.add_debug_log("No hand items found for target")
                 return False
-                
-            if not hasattr(target_hand_items, 'off_hand'):
-                self.add_debug_log("Target hand items has no 'off_hand' attribute")
-                return False
-                
-            off_hand_item = target_hand_items.off_hand
-            self.add_debug_log(f"Off-hand item: {off_hand_item}")
             
-            if not off_hand_item:
-                self.add_debug_log("Target has no off-hand item")
-                return False
-                
-            if not hasattr(off_hand_item, 'id'):
-                self.add_debug_log("Off-hand item has no 'id' attribute")
-                return False
-                
-            item_id = off_hand_item.id.lower()
-            self.add_debug_log(f"Off-hand item ID: {item_id}")
+            # Check main hand first
+            main_hand_item = None
+            off_hand_item = None
             
-            if 'shield' in item_id:
-                self.add_debug_log("Target is holding a shield! Returning True")
-                return True
-            else:
-                self.add_debug_log(f"Target is not holding a shield (item: {item_id})")
-                return False
+            if hasattr(target_hand_items, 'main_hand'):
+                main_hand_item = target_hand_items.main_hand
+                self.add_debug_log(f"Main hand item: {main_hand_item}")
+                
+            if hasattr(target_hand_items, 'off_hand'):
+                off_hand_item = target_hand_items.off_hand
+                self.add_debug_log(f"Off-hand item: {off_hand_item}")
+            
+            # Check main hand for shield
+            if main_hand_item and hasattr(main_hand_item, 'id'):
+                main_item_id = main_hand_item.id.lower()
+                self.add_debug_log(f"Main hand item ID: {main_item_id}")
+                if 'shield' in main_item_id:
+                    self.add_debug_log("Target is holding a shield in main hand!")
+                    return True
+            
+            # Check off-hand for shield
+            if off_hand_item and hasattr(off_hand_item, 'id'):
+                off_item_id = off_hand_item.id.lower()
+                self.add_debug_log(f"Off-hand item ID: {off_item_id}")
+                if 'shield' in off_item_id:
+                    self.add_debug_log("Target has shield in off-hand!")
+                    return True
+            
+            self.add_debug_log("Target is not holding a shield in either hand")
+            return False
                 
         except Exception as e:
             self.add_debug_log(f"Target shield check failed: {e}")
