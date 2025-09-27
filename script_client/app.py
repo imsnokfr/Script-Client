@@ -88,31 +88,30 @@ class ScriptClientApp:
         dpg.add_separator()
         
         # Delay control
-        dpg.add_text("Attack Delay Range (seconds):")
+        dpg.add_text("Attack Delay Range (ticks):")
         with dpg.group(horizontal=True):
             dpg.add_text("Min:")
-            dpg.add_input_float(
+            dpg.add_input_int(
                 label="",
-                default_value=0.1,
-                min_value=0.05,
-                max_value=2.0,
-                callback=self.update_triggerbot_delay_min,
+                default_value=2,
+                min_value=1,
+                max_value=40,
+                callback=self.update_triggerbot_delay_min_ticks,
                 tag="triggerbot_delay_min_input",
-                width=80,
-                format="%.2f"
+                width=80
             )
             dpg.add_text("Max:")
-            dpg.add_input_float(
+            dpg.add_input_int(
                 label="",
-                default_value=0.1,
-                min_value=0.05,
-                max_value=2.0,
-                callback=self.update_triggerbot_delay_max,
+                default_value=2,
+                min_value=1,
+                max_value=40,
+                callback=self.update_triggerbot_delay_max_ticks,
                 tag="triggerbot_delay_max_input",
-                width=80,
-                format="%.2f"
+                width=80
             )
-        dpg.add_text("Range: 0.1s - 0.1s", tag="triggerbot_delay_text")
+        dpg.add_text("Range: 2-2 ticks (0.10s-0.10s)", tag="triggerbot_delay_text")
+        dpg.add_text("Note: 20 ticks = 1 second", color=[150, 150, 150])
         
         dpg.add_separator()
         
@@ -276,30 +275,32 @@ class ScriptClientApp:
         self.triggerbot.debug_logs.clear()
         dpg.set_value("debug_logs_text", "Debug logs cleared.")
     
-    def update_triggerbot_delay_min(self, sender, value):
-        """Update triggerbot delay minimum value"""
+    def update_triggerbot_delay_min_ticks(self, sender, value):
+        """Update triggerbot delay minimum value in ticks"""
         # Clamp value to valid range
-        value = max(0.05, min(2.0, value))
-        delay_min, delay_max = self.triggerbot.get_delay_range()
-        if value > delay_max:
-            value = delay_max
-        self.triggerbot.set_delay_range(value, delay_max)
+        value = max(1, min(40, value))
+        delay_min_ticks, delay_max_ticks = self.triggerbot.get_delay_range_ticks()
+        if value > delay_max_ticks:
+            value = delay_max_ticks
+        self.triggerbot.set_delay_range_ticks(value, delay_max_ticks)
         self._update_delay_text()
     
-    def update_triggerbot_delay_max(self, sender, value):
-        """Update triggerbot delay maximum value"""
+    def update_triggerbot_delay_max_ticks(self, sender, value):
+        """Update triggerbot delay maximum value in ticks"""
         # Clamp value to valid range
-        value = max(0.05, min(2.0, value))
-        delay_min, delay_max = self.triggerbot.get_delay_range()
-        if value < delay_min:
-            value = delay_min
-        self.triggerbot.set_delay_range(delay_min, value)
+        value = max(1, min(40, value))
+        delay_min_ticks, delay_max_ticks = self.triggerbot.get_delay_range_ticks()
+        if value < delay_min_ticks:
+            value = delay_min_ticks
+        self.triggerbot.set_delay_range_ticks(delay_min_ticks, value)
         self._update_delay_text()
     
     def _update_delay_text(self):
         """Update delay text display"""
-        delay_min, delay_max = self.triggerbot.get_delay_range()
-        dpg.set_value("triggerbot_delay_text", f"Range: {delay_min:.2f}s - {delay_max:.2f}s")
+        delay_min_ticks, delay_max_ticks = self.triggerbot.get_delay_range_ticks()
+        delay_min_seconds = self.triggerbot.ticks_to_seconds(delay_min_ticks)
+        delay_max_seconds = self.triggerbot.ticks_to_seconds(delay_max_ticks)
+        dpg.set_value("triggerbot_delay_text", f"Range: {delay_min_ticks}-{delay_max_ticks} ticks ({delay_min_seconds:.2f}s-{delay_max_seconds:.2f}s)")
     
     def update_triggerbot_range_min(self, sender, value):
         """Update triggerbot range minimum value"""

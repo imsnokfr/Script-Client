@@ -33,8 +33,8 @@ except ImportError:
 class Triggerbot:
     def __init__(self):
         self.is_running = False
-        self.delay_min = 0.1  # Minimum delay in seconds
-        self.delay_max = 0.1  # Maximum delay in seconds
+        self.delay_min_ticks = 2  # Minimum delay in ticks (2 ticks = 0.1s)
+        self.delay_max_ticks = 2  # Maximum delay in ticks (2 ticks = 0.1s)
         self.triggerbot_thread = None
         self.debug_logs = []
         self.max_logs = 50  # Keep last 50 logs
@@ -44,19 +44,27 @@ class Triggerbot:
         self.range_min = 3.0  # Minimum attack range in blocks
         self.range_max = 3.0  # Maximum attack range in blocks
     
-    def set_delay_range(self, delay_min, delay_max):
-        """Set the attack delay range"""
-        self.delay_min = delay_min
-        self.delay_max = delay_max
+    def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
+        """Set the attack delay range in ticks"""
+        self.delay_min_ticks = delay_min_ticks
+        self.delay_max_ticks = delay_max_ticks
     
-    def get_delay_range(self):
-        """Get the current delay range"""
-        return self.delay_min, self.delay_max
+    def get_delay_range_ticks(self):
+        """Get the current delay range in ticks"""
+        return self.delay_min_ticks, self.delay_max_ticks
     
-    def get_random_delay(self):
-        """Get a random delay within the range"""
+    def get_random_delay_ticks(self):
+        """Get a random delay in ticks within the range"""
         import random
-        return random.uniform(self.delay_min, self.delay_max)
+        return random.randint(self.delay_min_ticks, self.delay_max_ticks)
+    
+    def ticks_to_seconds(self, ticks):
+        """Convert ticks to seconds (20 ticks = 1 second)"""
+        return ticks / 20.0
+    
+    def seconds_to_ticks(self, seconds):
+        """Convert seconds to ticks (1 second = 20 ticks)"""
+        return int(seconds * 20)
     
     def set_attack_method(self, method):
         """Set the attack method: 'minescript' or 'win32'"""
@@ -247,7 +255,8 @@ class Triggerbot:
                                     
                                     if distance > max_range:
                                         self.add_debug_log(f"Target {target_name} too far ({distance:.2f} > {max_range:.2f}) - skipping attack")
-                                        time.sleep(self.get_random_delay())
+                                        delay_ticks = self.get_random_delay_ticks()
+                                        time.sleep(self.ticks_to_seconds(delay_ticks))
                                         continue
                                 else:
                                     self.add_debug_log("Could not get target position - skipping range check")
@@ -257,12 +266,14 @@ class Triggerbot:
                             # Check weapon requirement
                             if self.weapon_only and not self.is_holding_weapon():
                                 self.add_debug_log("No weapon detected - skipping attack")
-                                time.sleep(self.get_random_delay())
+                                delay_ticks = self.get_random_delay_ticks()
+                                time.sleep(self.ticks_to_seconds(delay_ticks))
                                 continue
                             
                             # Attack the target using selected method
-                            current_delay = self.get_random_delay()
-                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay:.3f}s, method: {self.attack_method})")
+                            current_delay_ticks = self.get_random_delay_ticks()
+                            current_delay_seconds = self.ticks_to_seconds(current_delay_ticks)
+                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay_ticks} ticks / {current_delay_seconds:.3f}s, method: {self.attack_method})")
                             
                             if self.attack_method == "minescript":
                                 # Use Minescript attack method
@@ -279,7 +290,7 @@ class Triggerbot:
                                 # Use Win32 API attack method
                                 self._win32_attack()
                             
-                            time.sleep(current_delay)
+                            time.sleep(current_delay_seconds)
                         else:
                             # Small delay when no valid target
                             time.sleep(0.01)
