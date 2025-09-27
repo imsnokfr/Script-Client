@@ -43,6 +43,9 @@ class Triggerbot:
         self.allowed_weapons = set()  # Set of allowed weapon types
         self.range_min = 3.0  # Minimum attack range in blocks
         self.range_max = 3.0  # Maximum attack range in blocks
+        self.use_ticks = True  # Use ticks instead of seconds for delay
+        self.miss_chance = 0.0  # Chance to miss on purpose (0.0-1.0)
+        self.hit_mode = "every_hit"  # "every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits"
     
     def set_delay_range_ticks(self, delay_min_ticks, delay_max_ticks):
         """Set the attack delay range in ticks"""
@@ -65,6 +68,70 @@ class Triggerbot:
     def seconds_to_ticks(self, seconds):
         """Convert seconds to ticks (1 second = 20 ticks)"""
         return int(seconds * 20)
+    
+    def set_use_ticks(self, use_ticks):
+        """Set whether to use ticks or seconds for delay"""
+        self.use_ticks = use_ticks
+        self.add_debug_log(f"Delay mode set to: {'ticks' if use_ticks else 'seconds'}")
+    
+    def set_miss_chance(self, miss_chance):
+        """Set the miss chance (0.0-1.0)"""
+        self.miss_chance = max(0.0, min(1.0, miss_chance))
+        self.add_debug_log(f"Miss chance set to: {self.miss_chance:.1%}")
+    
+    def set_hit_mode(self, hit_mode):
+        """Set the hit mode"""
+        valid_modes = ["every_hit", "only_crits", "mainly_crits", "crit_hits", "sprint_hits"]
+        if hit_mode in valid_modes:
+            self.hit_mode = hit_mode
+            self.add_debug_log(f"Hit mode set to: {hit_mode}")
+        else:
+            self.add_debug_log(f"Invalid hit mode: {hit_mode}")
+    
+    def should_miss(self):
+        """Check if this attack should miss on purpose"""
+        import random
+        return random.random() < self.miss_chance
+    
+    def can_crit(self):
+        """Check if player can perform a critical hit"""
+        try:
+            if minescript:
+                # Check if player is falling (crit condition)
+                player_pos = minescript.player_position()
+                if player_pos:
+                    # Simple check: if player is moving down, they might be falling
+                    # This is a basic implementation - could be enhanced
+                    return True  # For now, assume crits are possible
+        except:
+            pass
+        return False
+    
+    def is_sprinting(self):
+        """Check if player is sprinting"""
+        try:
+            if minescript:
+                # This would need to be implemented based on Minescript API
+                # For now, return False as a placeholder
+                return False
+        except:
+            pass
+        return False
+    
+    def should_attack_based_on_mode(self):
+        """Determine if we should attack based on hit mode"""
+        if self.hit_mode == "every_hit":
+            return True
+        elif self.hit_mode == "only_crits":
+            return self.can_crit()
+        elif self.hit_mode == "mainly_crits":
+            # Prefer crits but allow normal hits if no crit available
+            return True
+        elif self.hit_mode == "crit_hits":
+            return self.can_crit()
+        elif self.hit_mode == "sprint_hits":
+            return self.is_sprinting()
+        return True
     
     def set_attack_method(self, method):
         """Set the attack method: 'minescript' or 'win32'"""
@@ -270,10 +337,31 @@ class Triggerbot:
                                 time.sleep(self.ticks_to_seconds(delay_ticks))
                                 continue
                             
+                            # Check hit mode requirements
+                            if not self.should_attack_based_on_mode():
+                                mode_reason = f"Hit mode '{self.hit_mode}' not satisfied"
+                                self.add_debug_log(f"Skipping attack: {mode_reason}")
+                                delay_ticks = self.get_random_delay_ticks()
+                                time.sleep(self.ticks_to_seconds(delay_ticks))
+                                continue
+                            
+                            # Check miss chance
+                            if self.should_miss():
+                                self.add_debug_log(f"Intentionally missing attack on {target_name} (miss chance: {self.miss_chance:.1%})")
+                                delay_ticks = self.get_random_delay_ticks()
+                                time.sleep(self.ticks_to_seconds(delay_ticks))
+                                continue
+                            
                             # Attack the target using selected method
                             current_delay_ticks = self.get_random_delay_ticks()
                             current_delay_seconds = self.ticks_to_seconds(current_delay_ticks)
-                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay_ticks} ticks / {current_delay_seconds:.3f}s, method: {self.attack_method})")
+                            hit_info = f"mode: {self.hit_mode}"
+                            if self.can_crit():
+                                hit_info += " (CRIT!)"
+                            if self.is_sprinting():
+                                hit_info += " (SPRINT!)"
+                            
+                            self.add_debug_log(f"Attacking {target_name} (delay: {current_delay_ticks} ticks / {current_delay_seconds:.3f}s, {hit_info}, method: {self.attack_method})")
                             
                             if self.attack_method == "minescript":
                                 # Use Minescript attack method
