@@ -1,0 +1,10 @@
+# Script Client Requirements
+# Optimized libraries for best performance
+
+# GUI Framework - DearPyGui (fast, modern, GPU-accelerated)
+dearpygui
+pywin32>=1.10.1
+
+# Optional performance enhancements
+# numpy>=1.21.0  # For mathematical operations (if needed)
+# psutil>=5.8.0  # For system monitoring (if needed)
